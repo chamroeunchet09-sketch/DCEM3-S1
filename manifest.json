@@ -1,0 +1,22 @@
+{
+  "name": "MediQuiz Pro",
+  "short_name": "MediQuiz",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#4f46e5",
+  "description": "កម្មវិធីសាកល្បងសមត្ថភាពវិជ្ជាជីវៈពេទ្យ",
+  "icons": [
+    {
+      "src": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/Medical_cross_symbol.svg/192px-Medical_cross_symbol.svg.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/Medical_cross_symbol.svg/512px-Medical_cross_symbol.svg.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
+
