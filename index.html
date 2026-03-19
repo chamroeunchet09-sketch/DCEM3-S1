@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="km">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>MediQuiz Pro</title>
+  
+  <!-- PWA Meta Tags -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#4f46e5">
+  <link rel="apple-touch-icon" href="https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/Medical_cross_symbol.svg/1024px-Medical_cross_symbol.svg.png">
+  <meta name="description" content="Medical Quiz Application">
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- React & ReactDOM (Production) -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+
+  <!-- Babel for JSX -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <style>
+    /* Custom Scrollbar for Sidebar */
+    .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #c7c7cc; border-radius: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #a1a1aa; }
+    body { -webkit-tap-highlight-color: transparent; }
+  </style>
+
+  <!-- Service Worker Registration -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js').then(reg => {
+          console.log('ServiceWorker registered!', reg);
+        }).catch(err => {
+          console.log('ServiceWorker registration failed: ', err);
+        });
+      });
+    }
+  </script>
+</head>
+<body class="bg-gray-50 text-gray-900 font-sans antialiased selection:bg-indigo-100">
+  
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useMemo } = React;
+
+    // --- ការបង្កើត Icons (ជំនួស lucide-react ដើម្បីងាយស្រួលដាក់ក្នុង GitHub) ---
+    const Icons = {
+      Settings: ({size=24, className=""}) => <svg width={size} height={size} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>,
+      List: ({size=24, className=""}) => <svg width={size} height={size} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>,
+      Play: ({size=24, className=""}) => <svg width={size} height={size} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>,
+      CheckCircle2: ({size=24, className=""}) => <svg width={size} height={size} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>,
+      XCircle: ({size=24, className=""}) => <svg width={size} height={size} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>,
+      ChevronRight: ({size=24, className=""}) => <svg width={size} height={size} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>,
+      ChevronLeft: ({size=24, className=""}) => <svg width={size} height={size} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>,
+      RefreshCcw: ({size=24, className=""}) => <svg width={size} height={size} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="1 4 1 10 7 10"></polyline><polyline points="23 20 23 14 17 14"></polyline><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"></path></svg>,
+      Home: ({size=24, className=""}) => <svg width={size} height={size} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>,
+      BookOpen: ({size=24, className=""}) => <svg width={size} height={size} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>,
+      Award: ({size=24, className=""}) => <svg width={size} height={size} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="7"></circle><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"></polyline></svg>,
+      Menu: ({size=24, className=""}) => <svg width={size} height={size} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>,
+      X: ({size=24, className=""}) => <svg width={size} height={size} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>,
+      Save: ({size=24, className=""}) => <svg width={size} height={size} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+    };
+    const { Settings, List, Play, CheckCircle2, XCircle, ChevronRight, ChevronLeft, RefreshCcw, Home, BookOpen, Award, Menu, X, Save } = Icons;
+
+    // --- ទិន្នន័យសំណួរ (រក្សាដើមទាំងអស់ ១៩៨ សំណួរ) ---
+    const rawQuestions = [
+      { id: 1, subject: 'Anesthesie', text: "1-Parmie les réponses suivantes laquelle est un examen préopératoire?", options: ["A. Bilan d’hémostase", "B. ECG chez tous les jeunes adultes", "C. CPK"], answer: 0 },
+      { id: 2, subject: 'Anesthesie', text: "2-Laquelle est la chirurgie majeur?", options: ["A. La chirurgie thyroïdienne", "B. La chirurggie mammaire", "C. Néphrectomie"], answer: 2 },
+      { id: 3, subject: 'Anesthesie', text: "3-Lequel est un bon méthode pour le jeûn préopératoire?", options: ["A. 4H pour solide", "B. 6H pour liquid", "C. Au moins 6H pour solide"], answer: 2 },
+      { id: 4, subject: 'Anesthesie', text: "4-Facteur favorisant d’inhalation pendant l’anesthésie Générale", options: ["A. Sujet diabète", "B. Occlusion intestinal", "C. Grossesse", "D. Tous"], answer: 3 },
+      { id: 5, subject: 'Anesthesie', text: "5-Les medicaments pour prémédication, sauf", options: ["A. Diazépam", "B. Gabapentin", "C. Acétaminophène", "D. Hydroxyzine"], answer: 2 },
+      { id: 6, subject: 'Anesthesie', text: "6-L’anesthésie générale présente", options: ["A. 1 stade", "B. 2 stade", "C. 3 stade", "D. 4 stade"], answer: 3 },
+      { id: 7, subject: 'Anesthesie', text: "7-Les medicaments utilisés en anesthésie générale", options: ["A. Les hypnotics", "B. Les morphiniques", "C. Les curares", "D. A+B", "E. Tous"], answer: 4 },
+      { id: 8, subject: 'Anesthesie', text: "8-Les contres indications de rachi-anesthésie, sauf", options: ["A. TP<50%", "B. Plaquette > 150 000/mm3", "C. Refuse de patient", "D. Infection au site d’injection"], answer: 1 },
+      { id: 9, subject: 'Anesthesie', text: "9-Le produit anesthésique local le plus cardiotoxic est", options: ["A. Levobupivacaine", "B. Bupivacaine", "C. Lidocaine"], answer: 1 },
+      { id: 10, subject: 'Anesthesie', text: "10-L’hémoptysie abondant lorsque", options: ["A. La quantité > 150ml/24H", "B. La quantité = 100-140ml/24H", "C. La quantité > 100ml/24H"], answer: 0 },
+      { id: 11, subject: 'Anesthesie', text: "11-Les causes de l’hémoptysie", options: ["A. Embolie pulmonaire", "B. Pleurésie", "C. Ulcère gastrique", "D. Temponnade"], answer: 0 },
+      { id: 12, subject: 'Anesthesie', text: "12-Le Cause le plus frequent de l’OAP", options: ["A. Insuffisance cardique droite", "B. Insuffisance cardiaque gauche", "C. Hypertension artérielle pulmonaire ( HTAP )"], answer: 1 },
+      { id: 13, subject: 'Anesthesie', text: "13-Quells sont les signs/symptômes de l’OAP", options: ["A. Dyspnée de type orthopée", "B. Douleur thoracique", "C. Râles crepitants bibasals", "D. A+B", "E. A+C"], answer: 4 },
+      { id: 14, subject: 'Anesthesie', text: "14-La prise en charge initiale de l’asthme aiguë grave, laquelle est vraie?", options: ["A. Magnésium sulfate (IV)", "B. Salbutamol (IV)", "C. Nébulisation salbutamol", "D. L’oxygénothérapie par lunette"], answer: 2 },
+      { id: 15, subject: 'Anesthesie', text: "15-Les signs de l’asthme aiguë grave", options: ["A. Hypoxémie", "B. Hypocapnie", "C. Acidose métabolique"], answer: 0 },
+      { id: 16, subject: 'Anesthesie', text: "16-La position de sécurité pour le traumatisme crânien", options: ["A. La position de Tremdelenburg", "B. Décubitus latérale", "C. Tête élevée 30o"], answer: 2 },
+      { id: 17, subject: 'Anesthesie', text: "17-Le produit qu’on peut utiliser pour le patient de traumatisme crânien, lequel?", options: ["A. Ringer Lactate", "B. D5%", "C. NSS 0.9% ", "D. A+B"], answer: 2 },
+      { id: 18, subject: 'Anesthesie', text: "18-Le medicament utilisé en première intension pendant le choc septique", options: ["A. Dopamine", "B. Dobutamine", "C. Noradrénaline", "D. Adrénaline"], answer: 2 },
+      { id: 19, subject: 'Anesthesie', text: "19-Sign de l’état de choc", options: ["A. Les extrémités sont froids", "B. Temps de recoloration > 3s", "C. Diurése > 1ml/kg/h", "D. A+B", "E. B+C"], answer: 3 },
+      { id: 20, subject: 'Anesthesie', text: "20-Le médicament utilisé en première intension pendant le choc cardiogénique", options: ["A. Dopamine", "B. Dobutamine", "C. Noradrénaline", "D. Adrénaline"], answer: 1 },
+      { id: 21, subject: 'Anesthesie', text: "21-Le médicament utilisé en première intension pendant le choc anaphylactique", options: ["A. Dopamine", "B. Dobutamine", "C. Noradrénaline", "D. Adrénaline"], answer: 3 },
+      { id: 22, subject: 'Anesthesie', text: "22-Les solutions de remplissage pour choc hypovolémique sont vraie sauf une, laquelle?", options: ["A. NSS 0.9%", "B. Ringer Lactate", "C. D5%", "D. Gélofusine"], answer: 2 },
+      { id: 23, subject: 'Anesthesie', text: "23-Le cause de choc hypovolémique est", options: ["A. Insuffisance cardiaque", "B. Insuffisance Rénale chronique", "C. Diarrhée profuse", "D. Septicémie"], answer: 2 },
+      { id: 24, subject: 'Anesthesie', text: "24-Les critères suivants sont rencontrés dans le choc anaphylactique, sauf :", options: ["A. Urticare", "B. Oedème laryngée", "C. Diurèse < 0.5 ml/kg/h", "D. Hyperleucocytose"], answer: 3 },
+      { id: 25, subject: 'Anesthesie', text: "25- L’infection nosocomiale", options: ["A. Le début de l’infection apparait dès 48 H après hospitalization", "B. Moins grave que l’infection Communautaire", "C. Dans la majorité de cas les germes de L’infection nosocomiale sont multirésistances", "D. A+C"], answer: 3 },
+      { id: 26, subject: 'Anesthesie', text: "26-Le sujet à risque de l’infection nosocomiale, sauf", options: ["A. Sujet âgé", "B. Sujet diabètique", "C. Insuffisance renal chronique terminale", "D. Sujet jeune saint", "E. Tous"], answer: 3 },
+      { id: 27, subject: 'Anesthesie', text: "27-Pour libérer la voie aérienne supérieure, on doit", options: ["A. Flexion de la tête", "B. Poser le sonde nasogastrique", "C. Poser le canule de Quedel dans la bouche"], answer: 2 },
+      { id: 28, subject: 'Anesthesie', text: "28-L’indication de l’intubation orotrachéale", options: ["A. PaO2 < 40 cmH2O", "B. Traumatisme crânien et GCS < 8/15", "C. Syndrôme de détresse respiratoire aiguë", "D. A+B", "E. Tous"], answer: 4 },
+      { id: 29, subject: 'Anesthesie', text: "29-Le matériel de l’intubation orotrachéale,", options: ["A. Laryngoscope", "B. Sonde d’intubation", "C. LMA", "D. A+B"], answer: 3 },
+      { id: 30, subject: 'Anesthesie', text: "30-Le phénomène de l’hypersensibilité peut avoir lieu quand", options: ["A. Dès la première fois que l’antigène et l’anticorps se rencontre", "B. Dès la deuxième fois que l’antigène et l’anticorps se rencontre", "C. Il ne doit pas la présente de l’antigène"], answer: 1 },
+      { id: 31, subject: 'Anesthesie', text: "31-Le germe le plus grave dans l’infection nosocomiale est", options: ["A. Pneumocoque", "B. Méningocoque", "C. P. aeruginosa", "D. Clamydia"], answer: 2 },
+      { id: 32, subject: 'Anesthesie', text: "32. Le sujet le plus risque de la pneumonie nosocomiale est", options: ["A. Le sujet sous ventilation mécanique", "B. Le patient hémodialysé", "C. Le sujet anémique"], answer: 0 },
+      { id: 33, subject: 'Anesthesie', text: "33- L’antibiotique utilisé pour pneumonie nosocomial est", options: ["A. Ciprofloxacine", "B. Gentamycine", "C. Pipéracilline", "D. Métronidazol"], answer: 2 },
+      { id: 34, subject: 'Anesthesie', text: "34-. Les causes de l’arrêt cardio-circulatoire", options: ["A. Pneumothorax non compressif", "B. Thrombose veineuse superficiel", "C. Embolie pulmonaire", "D. IRA fontionnelle"], answer: 2 },
+      { id: 35, subject: 'Anesthesie', text: "35-Le niveau qu’on peut effectuer Rachi-anesthésie", options: ["A. L1-L2", "B. L2-L3", "C. L3-L4", "D. T11-T12"], answer: 2 },
+      { id: 36, subject: 'Anesthesie', text: "36-Pour prévetion la pneumonie nosocomiale, on doit", options: ["A. Aspiration le sonde d’intubation tous les 4 heures", "B. Élévation de la tête de patient en 30o", "C. L’hygiène buccale strictement chez le patient sous la ventilation mécanique", "D. Tous"], answer: 3 },
+      { id: 37, subject: 'Anesthesie', text: "37-Quelles sont la prise en charge la plus correcte pendant arrêt cardiorespiratoire", options: ["A. Massage cardiaque externe", "B. Le choc électrique est le première indication pour arrêt cardiorespiratoire", "C. Intubation orotrachéale plus vite que possible", "D. A+B", "E. A+C"], answer: 4 },
+      { id: 38, subject: 'Anesthesie', text: "38-Vrai ou faux. Il n’y a pas de lésion cérébrale détectable lors d’une commotion cérébrale.", options: ["A. Vrai", "B. Faux", "C. A+B"], answer: 0 },
+      { id: 39, subject: 'Anesthesie', text: "39-Vrai ou faux. La commotion cérébrale peut entraîner une perte de conscience de quelques minutes.", options: ["A. Vrai", "B. Faux", "C. A+B"], answer: 0 },
+      { id: 40, subject: 'Anesthesie', text: "40-Choisissez les complications possibles après des commotions répétées.", options: ["A. Hématome extradurale ( HED )", "B. Hématome sous durale chronique ( HSD )", "C. Maladie de PARKINSON", "D. Maladie d’Alzheimer", "E. C+D"], answer: 4 },
+      { id: 41, subject: 'Anesthesie', text: "41-Vrai ou faux. Lors d’une contusion cérébrale, la lésion peut être placé du côté oppose du point d’impact ( contre-coup ).", options: ["A. Vrai", "B. Faux", "C. A+B"], answer: 0 },
+      { id: 42, subject: 'Anesthesie', text: "42-Comment apelle-t-on la petite période où le patient va mieux lors d’un hematoma extradural ( HED )", options: ["A. L’intervalle de soulagement", "B. L’intervale libre", "C. L’intervalle de Babinski", "D. L’intervalle méningé"], answer: 1 },
+      { id: 43, subject: 'Anesthesie', text: "43-Quell(s) caractère(s) s’associe(nt) classiquement aux allergies médicamenteuse?", options: ["A. Les signes n’apparaîssent pas dès la première prise", "B. Il n’y a pas de relation directe entre l’intensité de symptômes et la dose absorbée", "C. Les sujest atteints possèdent le gène HLa-B27", "D. Les signs ne sont pas liés à une action pharmacologique", "E. A,B,D"], answer: 4 },
+      { id: 44, subject: 'Anesthesie', text: "44-Le traitement d’urgence du choc anaphylactique comporte en première intention :", options: ["A. Les anti-histaminiques anti-H1", "B. Les antibiotiques", "C. Les corticoides injectables", "D. L’adrénaline", "E. Les anti-histaminiques anti-H2"], answer: 3 },
+      { id: 45, subject: 'Anesthesie', text: "45-Un patient de 54 ans hospitalisé depuis 3 jours pour pneumopathie est trouvé en état de mort apparente par l’infirmière. L’ECG enregistre une asystolie. Quelle injection ordonnez vous en urgence ?", options: ["A. Adrénaline 1mg", "B. Adrénaline 3mg", "C. Atropine 0.5mg", "D. Atropine 1mg"], answer: 0 },
+      { id: 46, subject: 'Anesthesie', text: "46-Face à un patient en l’arrêt cardio-respiratoire, dans quelle situation utiliserez-vous de l’atropine ?", options: ["A. Asystolie", "B. Bradycardie en dissociation éléctro-mécanique", "C. Tachycardie ventriculaire", "D. Fibrillation ventriculaire", "E. Torsade de point"], answer: 2 },
+      { id: 47, subject: 'Anesthesie', text: "47-Dans le traitement d’une douleur aigue l’utilisation de la morphine ne doit pas se faire en association avec :", options: ["A. Nalorphine (NalorphineR)", "B. Pentazocine ( Fortal )", "C. Dextromoramide (Palfium)", "D. Naloxone (Narcan)", "E. B,D"], answer: 4 },
+      { id: 48, subject: 'Anesthesie', text: "48-Parmie les indications des différents produits de remplissage, laquelle est fausse ?", options: ["A. L’albumine humaine pour la femme enceint", "B. Les cristaloïdes pour le choc anaphylactique", "C. Les dextrans pour l’insuffisance rénale", "D. Le plasma frais congelépour l’hémorrhagie aiguë", "E. Les hydroxy-éthyl-amidons pour le polytraumatisé"], answer: 2 },
+      { id: 49, subject: 'Anesthesie', text: "49-La définition de l’hémoptysie abondante fait intervenir (CM)", options: ["A. Un rejet de sang rouge aéré, issu des voies aériennes sous-glottiques", "B. Un rejet de sang rouge non aéré, isu de la cavité buccale", "C. Volume > 600 ml/24h", "D. Volum e> 200 ml/24h", "E. A,C"], answer: 4 },
+      { id: 50, subject: 'Anesthesie', text: "50-Les signs cliniques de choc hémorrhagique apparaissent à partir d’une spoliation sanguinede :", options: ["A. 10 ml/kg", "B. 25 ml/kg", "C. 40 ml/kg", "D. 55 ml/kg", "E. 70 ml/kg"], answer: 1 },
+      { id: 51, subject: 'Anesthesie', text: "51-Une dyspée inspiratoire sifflante peut traduire : (CM des faux)", options: ["A. La présente d’un corps étranger", "B. Une sténose trachéale", "C. Un asthme aigue grave", "D. Un emphysème pan lobulaire", "E. C,D"], answer: 4 },
+      { id: 52, subject: 'Anesthesie', text: "51-. En cas de choc hémorrhagique (cochez les réponses justes)", options: ["A. L’apport d’oxygène aux tissus est réduit par deux mécanismes", "B. Il est recommender d’utiliser les cristalloïdes lorsque la perte > 20%", "C. Por un choc hypovolémique avec PAM < 80 mmHg l’utilisation de colloïdes est recommendée", "D. L’apport d’électrocytes est indispensable si Hb < 7 g/100ml", "E. A,C,D"], answer: 4 },
+      { id: 53, subject: 'Anesthesie', text: "52-En cas d’hypovolémie, le remplissage vasculaire doit comporter :", options: ["A. Duplasma frais congelé", "B. De l’albumine en cas de contre indication aux colloïdes ou protidémie < 35g/l", "C. Des gélatine en raison d’effet secondaire plus rare", "D. Du Ringé lactate en cas d’hyperkaliémie associé", "E. Des cristalloïdes isotoniques"], answer: 1 },
+      { id: 54, subject: 'Anesthesie', text: "53-Les Osmolytes :", options: ["A. Sont des composés organiques", "B. Sont des tempons extra cellulaire", "C. Régulent l’osmolalité intra cellulaire", "D. Influencent le pH extracellulaire", "E. A+B"], answer: 4 },
+      { id: 55, subject: 'Anesthesie', text: "54-Médicament le plus utilisé dans le choc anaphylactique. Seul réponse est vraie, la quelle ?", options: ["A. Dopamine", "B. Antibiotique", "C. Adrénaline", "D. Dobutamine", "E. Atropine"], answer: 2 },  
+      { id: 56, subject: 'Psychiatrie', text: "1- A 55 years old man, comes with an excessive or arousal state characterized by feeling of apprehension, uncertainly and fear. Find the best statement of mental disorders for this patient.", options: ["A. Depressive disorders", "B. Dysthymic disorders", "C. General anxiety disorders", "D. Phobic disorders"], answer: 2 },
+      { id: 57, subject: 'Psychiatrie', text: "2-Which is the first choice of medicine should be prescribe for this patient during the 1st visit.", options: ["A. Tricyclic anti depression", "B. Selective serotonin reuptake inhibitor", "C. Benzodiazepine", "D. Antipsychotic"], answer: 2 },
+      { id: 58, subject: 'Psychiatrie', text: "3-Which is the best statement of the pharmacodynamic by using Fluoxetine.", options: ["A. Inhibit serotonin receptors", "B. Inhibit norepinephrine receptors", "C. Inhibit serotonin reuptake pump", "D. Inhibit dopamine receptors"], answer: 2 },
+      { id: 59, subject: 'Psychiatrie', text: "4-Which is the best start recommended of the dosage by using Fluoxetine for this patient.", options: ["A. Should start with 10mg", "B. Should start with 20mg", "C. Should start with 25mg", "D. Should start with 50mg"], answer: 1 },
+      { id: 60, subject: 'Psychiatrie', text: "5-Case 2: A 36 woman comes with the complaint of symptoms such as fatigue, trembling, muscle tension, chest tightness and nausea are associated with psychological problem. Which is the statement should be the most explored?", options: ["A. Others physical symptoms", "B. Repeated the in doing one thing", "C. Psychological symptoms/ onset", "D. Experience of the traumatic event"], answer: 2 },
+      { id: 61, subject: 'Psychiatrie', text: "6- A 36 woman comes with the complaint of symptoms such as fatigue, trembling, muscle tension, chest tightness and nausea are associated with psychological problem. Which diagnosis should be the most consider?", options: ["A. PTSD", "B. OCD", "C. GAD", "D. Depression"], answer: 2 },
+      { id: 62, subject: 'Psychiatrie', text: "7-Case 3: A 65 years old woman, come with complaint of startle and palpitation even though stimulated by sound ( loudly voice, broke things, shadow of someone..etc). Which is the statement should be the most explored?", options: ["A. Others physical symptoms", "B. Repeated the in doing one thing", "C. Psychological symptoms/ onset", "D. Experience of the traumatic event"], answer: 3 },
+      { id: 63, subject: 'Psychiatrie', text: "8- A 65 years old woman, come with complaint of startle and palpitation even though stimulated by sound ( loudly voice, broke things, shadow of someone..etc). Which is the most of psychological symptoms should be consider?", options: ["A. Feeling of tension", "B. Bad dream terror", "C. Excessive worry", "D. Fear of dying"], answer: 1 },
+      { id: 64, subject: 'Psychiatrie', text: "9-Case 3: A 65 years old woman, come with complaint of startle and palpitation even though stimulated by sound ( loudly voice, broke things, shadow of someone..etc). Which diagnosis should be the most consider?", options: ["A. PTSD", "B. OCD", "C. GAD", "D. Depression"], answer: 0 },
+      { id: 65, subject: 'Psychiatrie', text: "10- A 42 years old woman teacher, comes with symptoms of palpitation, trembling, fearful even though going out and no body stay home with. Which is the statement should be the most explored?", options: ["A. Others physical symptoms", "B. Repeated the in doing one thing", "C. Others Psychological symptoms", "D. Denial with extremely terror"], answer: 3 },
+      { id: 66, subject: 'Psychiatrie', text: "11- A 42 years old woman teacher, comes with symptoms of palpitation, trembling, fearful even though going out and no body stay home with. Which diagnosis should be the most consider?", options: ["A. PTSD", "B. Specific phobia", "C. Agoraphobia", "D. Social phobia"], answer: 2 },
+      { id: 67, subject: 'Psychiatrie', text: "12- An excessive or aroused state characterized by feelings of apprehension, uncertainty and fear Which is the best group of mental disorders should be considered?", options: ["A. Depressive group", "B. Psychotic group", "C. Anxiety group", "D. Personality group"], answer: 2 },
+      { id: 68, subject: 'Psychiatrie', text: "13-An excessive, unreasonable, persistent fear triggered by a remarkable situation.", options: ["A. Generalized anxiety disorders", "B. Post traumatic stress disorders", "C. Social phobic disorders", "D. Specific phobic disorders"], answer: 3 },
+      { id: 69, subject: 'Psychiatrie', text: "14- Which of the following is a predominant evolutionary theory of phobia?", options: ["A. Non-associative fear acquisition", "B. Learned fear response", "C. Biological preparedness", "D. Specific phobia acquisition"], answer: 2 },
+      { id: 70, subject: 'Psychiatrie', text: "15- One important issue in therapy for specific phobias is address:", options: ["A. Ensure the individual never comes with phobic event/situation", "B. Phobic beliefs with their phobic event/situation", "C. Opportunity talk about their phobic event/situation", "D. Analyze any dream related to their phobic event/situation"], answer: 1 },
+      { id: 71, subject: 'Psychiatrie', text: "16- Which is the most considered in cognitive behavioral therapy (CBT) of social phobia?", options: ["A. Exposure therapy", "B. Talk therapy", "C. Group therapy", "D. Individual therapy"], answer: 0 },
+      { id: 72, subject: 'Psychiatrie', text: "17- Which of the following is a long-term drug treatment for social phobia?", options: ["A. Some types of neuroleptic drug", "B. Some types of anxiolytic drugs", "C. Selective serotonin reuptake inhibitor", "D. Tricyclic antidepressant"], answer: 2 },
+      { id: 73, subject: 'Psychiatrie', text: "18- One technic in ABC model is the most getting to the effective and change the patient with negative . should be consider:", options: ["A. Challenging with the patient thought", "B. Tell the patient to change their thought", "C. Advise patient to change their thought"], answer: 0 },
+      { id: 74, subject: 'Psychiatrie', text: "19- The missing of one structure in ABC model which is the consequent of psychological symptoms should be consider:", options: ["A. The behavior", "B. The trigger", "C. The thinking", "D. The believe"], answer: 3 },
+      { id: 75, subject: 'Psychiatrie', text: "20- The counseling purpose as is the most effectiveness of helping the mentally ill is:", options: ["A. Talk with the patient", "B. Problem solving", "C. Therapist lead session", "D. The patient follows therapist’s idea"], answer: 1 },
+      { id: 76, subject: 'Psychiatrie', text: "21- The counseling obstacle as is the main consideration:", options: ["A. Both therapist patient expectation", "B. Good listening therapist", "C. The patient follows therapist’s idea", "D. Consideration and understanding"], answer: 2 },
+      { id: 77, subject: 'Psychiatrie', text: "22- During the first visit patient is mostly feels anxious. Which is statement should be considered:", options: ["A. Be empathy/ sympathy", "B. Put the patient at ease", "C. Patient’s information is confidentiality", "D. Sharing information"], answer: 1 },
+      { id: 78, subject: 'Psychiatrie', text: "23- Which is the main statement that therapist ends communication and hurry up to catch the meaning of the patient said:", options: ["A. Understanding", "B. Clarification", "C. Summarizing", "D. Non-judgmental"], answer: 3 },
+      { id: 79, subject: 'Psychiatrie', text: "24- Which is the main statement that therapist repeats what the patient said during the interview?", options: ["A. Clarification", "B. Summarizing", "C. Paraphrasing", "D. Notification"], answer: 0 },
+      { id: 80, subject: 'Psychiatrie', text: "25- Which is the main statement that therapist mention the patient’s problem before ending session?", options: ["A. Appointment", "B. Summarizing", "C. Give home work", "D. Notification"], answer: 1 },
+      { id: 81, subject: 'Psychiatrie', text: "26- Which is the main statement that therapist ensures patient will come for the next session before ending interview?", options: ["A. Appointment", "B. Summarizing", "C. Give home work", "D. Notification"], answer: 0 },
+      { id: 82, subject: 'Psychiatrie', text: "27- Which is the main statement of therapist expectation that the patient will change his/her attitude and thinking before ending interview?", options: ["A. Appointment", "B. Summarizing", "C. Give home-work", "D. Notification"], answer: 2 },
+      { id: 83, subject: 'Psychiatrie', text: "28- The breath relaxation is one effective technic which is the best statement of the therapist apply for their patient to:", options: ["A. Improve the patient’s physical health", "B. Improve the patient’s behavior", "C. Improve the patient’s cognition", "D. Improve the patient’s attitude"], answer: 2 },
+      { id: 84, subject: 'Psychiatrie', text: "29- Some people have a predisposition factor which is triggered by stressful life event. Which is the most statement could be explained?", options: ["A. The conflict in family", "B. The unemployment", "C. The social problem", "D. Parent had mental illness"], answer: 2 },
+      { id: 85, subject: 'Psychiatrie', text: "30- Some people have a precipitation factor which is triggered by stressful life event. Which is the most statement could be explained?", options: ["A. The conflict in family", "B. The unemployment", "C. The social problem", "D. Parent had mental illness"], answer: 0 },
+      { id: 86, subject: 'Psychiatrie', text: "31- The important statement disruptive people’s work and prevent from doing thing could be explained as:", options: ["A. Impair functioning", "B. Psychotic feature", "C. Mood disorders", "D. Anxiety disorders"], answer: 0 },
+      { id: 87, subject: 'Psychiatrie', text: "32- Panic disorder is characterized by recurring severe panic attacks. Which following is the most caused a panic attack?", options: ["A. Sugar", "B. Caffeine", "C. Tea", "D. Milk"], answer: 1 },
+      { id: 88, subject: 'Psychiatrie', text: "33- Panic disorder is characterized by recurring severe panic attacks. Which following is the most medical illness caused a panic attack?", options: ["A. Diabetes", "B. HIV/AIDS", "C. High blood pressure", "D. Hyperthyroid"], answer: 2 },
+      { id: 89, subject: 'Psychiatrie', text: "34- People with Panic disorder is mostly associated:", options: ["A. Generalized anxiety Disorders", "B. Post-traumatic stress disorders", "C. Social phobic disorders", "D. Agoraphobia disorders"], answer: 3 },
+      { id: 90, subject: 'Psychiatrie', text: "35- The patient comes to Psychiatric OPD with complaint of fearful, palpitation, trembling with the performance at school. Which is the best long-term treatment of antidepressant you will chose?", options: ["A. Amitriptyline", "B. Imipramine", "C. SSRIs", "D. Benzodiazepine"], answer: 2 },
+      { id: 91, subject: 'Psychiatrie', text: "36- The patient comes to Psychiatric OPD with complaint of difficulty falling asleep, fearful, palpitation, trembling with the performance at school. Which is the best long-term treatment of antidepressant you will choose?", options: ["A. Amitriptyline", "B. Imipramine", "C. SSRIs", "D. Benzodiazepine"], answer: 1 },
+      { id: 92, subject: 'Psychiatrie', text: "37- Choosing the best recommended started dose of tricyclic antidepressant “Amitriptyline”?", options: ["A. 12,5 mg", "B. 25 mg", "C. 50mg", "D. 100mg"], answer: 0 },
+      { id: 93, subject: 'Psychiatrie', text: "38-A 43-year-old man with conversion disorder. Which of the following management approaches is least suitable?", options: ["A. Stress management", "B. Supportive psychotherapy", "C. Cognitive behavioral therapy", "D. Pharmacotherapy"], answer: 3 },
+      { id: 94, subject: 'Psychiatrie', text: "39- A 27-year-old man with illness anxiety disorder referred by GP to outpatient department. Which of the following medications would be the most suitable?", options: ["A. Fluoxetine", "B. Clomipramine", "C. Carbamazepine", "D. Diazepam"], answer: 0 },
+      { id: 95, subject: 'Psychiatrie', text: "40- A 35-year-old woman used to present with conversion disorder. Which of the following approaches is most suitable in preventing the relapse?", options: ["A. Stress management", "B. Supportive psychotherapy", "D. Cognitive behavioral therapy", "E. Pharmacotherapy"], answer: 0 },
+      { id: 96, subject: 'Psychiatrie', text: "41- A 39-year-old woman with somatic symptom disorder referred by GP to outpatient department. Which ofthe following medications would be the most suitable?", options: ["A. Imipramine", "B. Escitalopram", "C. Diaepam", "D. Lorazepam"], answer: 1 },
+      { id: 97, subject: 'Psychiatrie', text: "42- A 34-year-old man with somatic symptom disorder presents at outpatient department. Which of the following medications would be the most suitable?", options: ["A. Amitriptiline", "B. Imipramine", "C. Clomipramine", "D. Sertraline"], answer: 3 },
+      { id: 98, subject: 'Psychiatrie', text: "43- A 50-year-old woman avec conversion disorder and anxiety symptom referred to psychiatric outpatient department. Which of the following medications would be the most suitable?", options: ["A. Carbamazepine", "B. Alprazolam", "C. Haloperidol", "D. Phenytoine"], answer: 1 },
+      { id: 99, subject: 'Psychiatrie', text: "44- A 31-year-old woman has a long history of frequently changing physical symptoms particularly chronic neck pain. She is diagnosed as Somatic symptom disorder. Which of the following management approaches should be the most suitable?", options: ["A. Interview by passive listening", "B. Offer empathy", "D. Provide opioid analgesics", "E. Advise to reduce activities."], answer: 1 },
+      { id: 100, subject: 'Psychiatrie', text: "45- A 32-year-old woman presents with multiple physical complaints for the past four years. These include headaches, abdominal pain, dysmenorrhea, nausea, food intolerance and loss of libido. She is diagnosed as Somatic symptom disorder. Which of the following treatment goals is most likely correct?", options: ["A. to minimize symptoms", "B. to disappear symptoms", "C. to treat physical symptom", "D. to find out physical basis"], answer: 0 },
+      { id: 101, subject: 'Psychiatrie', text: "46-A 54-year-old woman was referred from gynecologic ward to psychiatric outpatient department. She perceived a touchable mass with aching when she pressed it. She believed she had left breath cancer, even investigations revealed no abnormality. She was diagnosed as Illness anxiety disorder. Which of the followings is the most appropriate intervention?", options: ["A. Refer to consult at oncology ward", "B. Checking repeatedly to confirm no any cancer", "C. Challenge unrealistic negative thought", "D. Abstinence from working"], answer: 2 },
+      { id: 102, subject: 'Psychiatrie', text: "47- A 55-year-old man has excessive preoccupation with acquiring HIV transmission. He is diagnosed as Illness anxiety disorder. Which of the following interventions is least likely correct?", options: ["A. HIV test repeatedly to confirm no any HIV", "B. Active listening with offer empathy", "C. Challenge cognitive distortion", "D. Encourage continuation normal activities"], answer: 0 },
+      { id: 103, subject: 'Psychiatrie', text: "48- A 55-year-old man has excessive preoccupation with acquiring HIV transmission. He is diagnosed as Illness anxiety disorder. Which of the following interventions is least likely correct?", options: ["A. HIV test repeatedly to confirm no any HIV", "B. Active listening with offer empathy", "C. Challenge cognitive distortion", "D. Encourage continuation normal activities"], answer: 0 },
+      { id: 104, subject: 'Psychiatrie', text: "49-ការព្យាបាលអ្នកញៀនគ្រឿងញៀនតាមបែបសហគមន៍Communitiesមាន ៖", options: ["A. បែបសហគមន៍Communities", "B. Community houses", "C. Self-help Houses", "D. Self-help Houses, Religion-based Center, Community houses"], answer: 3 },
+      { id: 105, subject: 'Psychiatrie', text: "50-សកម្មភាពផ្សេងៗដែលគេអនុវត្តន៍សម្រាប់ធ្វើការព្យាបាលលទ្ធភាពជនដែលញៀនគ្រឿងញៀនមាន៖", options: ["A. ការហាត់ប្រាណ, កីឡា, ការនិទានរឿង, ការច្រៀងនិងរាំ", "B. បំពេញការសិក្សា, ការសំដែងជាតួអង្គ Role-play,", "C. ការងារក្នុងមន្ទីរពេទ្យ, ការងារផ្ទះ, បំពេញការសិក្សា", "D. ការងារផ្ទះ, ការធ្វើដំណើរលំហែរ, ការងារកសិកម្ម"], answer: 0 },
+      { id: 106, subject: 'Psychiatrie', text: "51- Naloxone ដែលសកម្មភាពរបស់វាកើតមានរយៈពេលខ្លីនោះគេអាចប្រើ0.4mg ទៅ 2mg IV ។ យើងអាចឲ្យថ្នាំនេះម្តងទៀតក្នុងរយៈពេល", options: ["A. ក្រោយពី ៣-៥ នាទីបន្ទាប់", "B. ក្រោយពី ២-៣ នាទីបន្ទាប់", "C. ក្រោយពី ៥-១០ នាទីបន្ទាប់", "D. ក្រោយពី ១0-៣០ នាទីបន្ទាប់"], answer: 1 },
+      { id: 107, subject: 'Psychiatrie', text: "52-អ្នកជំងឺញៀនអាភៀនគួរឲ្យគាត់សម្រាកមន្ទីរពេទ្យនៅផ្នែកសង្គ្រោះបន្ទាន់យ៉ាងហោចណាស់៖", options: ["A. ០៨ ម៉ោង", "B. ១២ ម៉ោង", "C. ២៤ ម៉ោង", "D. ៤៨ ម៉ោង"], answer: 2 },
+      { id: 108, subject: 'Psychiatrie', text: "53- Diagnosis of Opioid Dependence in the neonate កើតមានលើកូនដែលម្តាយញៀន Heroine or Methadone នៅពេលមានផ្ទៃពោះ៖", options: ["A. រោគសញ្ញាកើតមាន ២៤ ទៅ ៤៨ ម៉ោងដំបូងបន្ទាប់កើតពីផ្ទៃម្តាយ", "B. រោគសញ្ញាកើតមាន ៤៨ ទៅ ៧២ ម៉ោងដំបូងបន្ទាប់កើតពីផ្ទៃម្តាយ", "C. រោគសញ្ញាកើតមាន ១២ ទៅ ២៤ ម៉ោងដំបូងបន្ទាប់កើតពីផ្ទៃម្តាយ", "D. រោគសញ្ញាកើតមាន ០៦ ទៅ ១២ ម៉ោងដំបូងបន្ទាប់កើតពីផ្ទៃម្តាយ"], answer: 1 },
+      { id: 109, subject: 'Psychiatrie', text: "54- A 2 years old boy still cannot control his own sphincter. He communicates less with his parents and family members. He produces sound as if intended to speak but he cannot. He can walk properly last 6 months. Since he was 1 years old, his both parents has noticed that the boy has something abnormal in development. Therefore they have tried to feed him with more protein, such as eggs and meats. Which of below problems the boy probably has?", options: ["A. Anxiety disorder", "B. Mental retardation", "C. Autistic disorder", "D. Conduct disorder", "E. Speech disorder"], answer: 1 },
+      { id: 110, subject: 'Psychiatrie', text: "55- A 2 years old boy still cannot control his own sphincter. He communicates less with his parents and family members. He produces sound as if intended to speak but he cannot. He can walk properly last 6 months. Since he was 1 years old, his both parents has noticed that the boy has something abnormal in development. Therefore they have tried to feed him with more protein, such as eggs and meats. Which of the below explanations describe the reason that the above parents did not bring the child for intervention?", options: ["A. Knowledge of parents about the symptoms", "B. Attitude of parents towards the symptoms", "C. Tolerance of parents on the symptoms", "D. Perception of parents about the symptoms", "E. No treatment service"], answer: 1 },
+      { id: 111, subject: 'Psychiatrie', text: "56- A 2 years old boy still cannot control his own sphincter. He communicates less with his parents and family members. He produces sound as if intended to speak but he cannot. He can walk properly last 6 months. Since he was 1 years old, his both parents has noticed that the boy has something abnormal in development. Therefore they have tried to feed him with more protein, such as eggs and meats. In case we want to know, which of the below IQ scores she probably has?", options: ["A. 10 – 20", "B. 20 – 30", "C. 30 – 40", "D. 40 – 50", "E. 50 – 60"], answer: 3 },
+      { id: 112, subject: 'Psychiatrie', text: "57- 3 years old boy remains un-explorative. Apart from eating, he does not demand much. He stays still at any place where his mother arrange for him. He seems not interested in things around him. His parents recognized the child has something different from other children. However, he does not disturb their busy business, so they do not bring him to the hospital yet. Which of below problems the boy probably has?", options: ["A. Anxiety disorder", "B. Mental retardation", "C. Autistic disorder (Autism)", "D. Conduct disorder", "E. Speech disorder"], answer: 2 },
+      { id: 113, subject: 'Psychiatrie', text: "58- Which of the below explanations describe the reason that the above parents did not bring the child for intervention?", options: ["A. Knowledge of parents about the symptoms", "B. Attitude of parents towards the symptoms", "C. Tolerance of parents on the symptoms", "D. Perception of parents about the symptoms", "E. No treatment service"], answer: 2 },
+      { id: 114, subject: 'Psychiatrie', text: "59- In case we want to know, how much IQ he probably has?", options: ["A. 10 – 20", "B. 20 – 30", "C. 30 – 40", "D. 40 – 50", "E. 50 – 60"], answer: 2 },
+      { id: 115, subject: 'Psychiatrie', text: "60- In order to judge whether any observed emotional, social, or intellectual functioning of a child is abnormal, it has to be compared with:", options: ["A. The corresponding normal development for the age group", "B. The corresponding abnormal development for the age group", "C. The corresponding culture for the age group", "D. The corresponding family for the age group", "E. The corresponding community where the child live"], answer: 0 },
+      { id: 116, subject: 'Psychiatrie', text: "61- A 4 years old girl is brought to you by her mother for abnormal behavior since last month. She clings to her mother all the time. She does not leave her mother to play with other children around her, even though she shows some desire to play. During the interview, she looks anxious and does not answer any word to your questions. She even does not look directly at your eyes. When her father get in, the girl became more alert and hide her face in her mother’s clothe (Sarong). What is a probable diagnosis in the girl?", options: ["A. Anxiety disorder", "B. Conduct disorder", "C. Phobic disorder", "D. Depressive disorder", "E. Child abuse"], answer: 4 },
+      { id: 117, subject: 'Psychiatrie', text: "62- A 4 years old girl is brought to you by her mother for abnormal behavior since last month. She clings to her mother all the time. She does not leave her mother to play with other children around her, even though she shows some desire to play. During the interview, she looks anxious and does not answer any word to your questions. She even does not look directly at your eyes. When her father get in, the girl became more alert and hide her face in her mother’s clothe (Sarong). What is a probable diagnosis in the girl?", options: ["A. Anxiety disorder", "B. Conduct disorder", "C. Phobic disorder", "D. Depressive disorder", "E. Child abuse"], answer: 4 },
+      { id: 118, subject: 'Psychiatrie', text: "63- If the children are not able to express their problems in word, the evidence of disturbance is based more on:", options: ["A. Observation of behavior made by parents and peers", "B. Observation of behavior made by teachers and peers", "C. Observation of behavior made by parents and teachers", "D. Observation of behavior made by clinicians and parents", "E. Observation of behavior made by all people around the child"], answer: 4 },
+      { id: 119, subject: 'Psychiatrie', text: "64- In child psychiatry, the direct intervention to the children is for:", options: ["A. Retraining and reassuring", "B. Changing their attitude", "C. Coordinating effort to help", "D. Organizing the child routine", "E. Restructure the child timetable"], answer: 0 },
+      { id: 120, subject: 'Psychiatrie', text: "65- In child psychiatry, the intervention directed toward the parents is for:", options: ["A. Retraining and reassuring", "B. Changing their attitude", "C. Coordinating effort to help", "D. Organizing the child routine", "E. Restructure the child timetable"], answer: 1 },
+      { id: 121, subject: 'Psychiatrie', text: "66- In child psychiatry, the intervention directed toward the teachers and others is for:", options: ["A. Retraining and reassuring", "B. Changing their attitude", "C. Coordinating effort to help", "D. Organizing the child routine", "E. Restructure the child timetable"], answer: 2 },
+      { id: 122, subject: 'Psychiatrie', text: "67- Child psychiatric treatment is made by a team consisting of:", options: ["A. Psychiatrists, psychiatric nurses and parents", "B. Psychiatrists, psychologists, teachers and parents", "C. Psychiatrists, pediatricians, teachers and parents", "D. Psychiatrists, psychologist, psychiatric nurses and parents", "E. Health professionals, parents, teachers, social workers and others"], answer: 4 },
+      { id: 123, subject: 'Psychiatrie', text: "68- Drug treatment in child psychiatry is:", options: ["A. Limited for all cases", "B. Limited but important for some disorders", "C. Restricted for all cases", "D. Necessary for all cases", "E. Not necessary for all cases"], answer: 1 },
+      { id: 124, subject: 'Psychiatrie', text: "69- In child psychiatry, family therapy will be needed when:", options: ["A. The child’s symptoms appear to be part of a disturbance of the whole family", "B. Child’s problems do not closely related to family function", "C. Parent’s marriage is breaking up", "D. Individual therapy is shown effective", "E. Family is dysfunction"], answer: 0 },
+      { id: 125, subject: 'Psychiatrie', text: "70- A 4 years old girl has become less active and less explorative for six months. She looks sad and does not talk as she used to do. Without verbal communication, which is the best way the clinician use to assess the feeling, thinking and problems of this child?", options: ["A. Interview the parents about the child", "B. Observe the child’s interaction with parents", "C. Play with the child using toys in a playroom", "D. Allow the child interact with her mother", "E. Comfort the child and repeat the questions"], answer: 2 },
+      { id: 126, subject: 'Psychiatrie', text: "71- Group therapy can be applied with group of:", options: ["A. Toddler", "B. Toddler and infancy", "C. Toddler and early childhood", "D. Toddler, early childhood and middle childhood", "E. Middle childhood and adolescence"], answer: 4 },
+      { id: 127, subject: 'Psychiatrie', text: "72- The child may need substitute care when:", options: ["A. Long-term enough treatment with medication does not work well", "B. The medications become resistant after a long enough trial", "C. The medications produces hard to endure side-effects", "D. He or she is the only one child in the family", "E. The child’s symptom result from a severe unstable home environment"], answer: 4 },
+      { id: 128, subject: 'Psychiatrie', text: "73- A 7 years old boy has been presenting aggressive behavior in inappropriate circumstances for 6 months. In the beginning, the aggression happened once or twice a month. Last week, following a serious dispute of his parents, the boy attempted to harm himself many times. Which intervention should be the best?", options: ["A. Family therapy", "B. Individual psychotherapy", "C. Group psychotherapy", "D. Arrange the child in a foster home", "E. Admit the child to the hospital"], answer: 4 },
+      { id: 129, subject: 'Medecine Legale', text: "1-La toxicomanie désigne une dépendance physique et psychologique d'une ou plusieurs substances toxiques sans justification thérapeutique, Indiquez quelle substance?", options: ["A. Hydrocortisone", "B. Colchicine", "C. Autres psychotropes", "D. Vitamine B", "E. Amoxicilline"], answer: 2 },
+      { id: 130, subject: 'Medecine Legale', text: "2-Les usages évoluent vers un besoin incontrôlable de continuer à consommer le produit accompagné: (un seul est juste)", options: ["A. D’accoutumance puis de dépendance", "B. Fièvre typhoïde", "C. Fièvre hémorragique", "D. Dysenterie", "E. Tuberculose pulmonaire"], answer: 0 },
+      { id: 131, subject: 'Medecine Legale', text: "3-Le terme générique de toxicomanie apparait dans quelles années ?", options: ["A. Dès 1810-1820", "B. En 1849", "C. En 1853", "D. Dans les années 1880", "E. En 1860"], answer: 3 },
+      { id: 132, subject: 'Medecine Legale', text: "4-Les stimulants du système nerveux central ont des actions, un seul est juste, Indiquez laquelle ?", options: ["A. Stimulent les fonctions psychiques en augmentant", "B. Dépriment les fonctions psychiques en diminuant", "C. Perturbent les fonctions psychiques d’un individu", "D. Antiulcéreux"], answer: 0 },
+      { id: 133, subject: 'Medecine Legale', text: "5-Les dépresseurs du système nerveux central ont des actions, une seule est juste, Indiquez laquelle ?", options: ["A. Stimulent les fonctions psychiques en augmentant", "B. Dépriment les fonctions psychiques en diminuant", "C. Perturbent les fonctions psychiques d’un individu", "D. Antituberculeuse", "E. Antipaludéenne"], answer: 1 },
+      { id: 134, subject: 'Medecine Legale', text: "6-Les hallucinogènes ou perturbateurs du système nerveux central ont des actions, une seul est juste, Indiquez laquelle ?", options: ["A. Stimulent les fonctions psychiques en augmentant", "B. Dépriment les fonctions psychiques en diminuant", "C. Perturbent les fonctions psychiques d’un individu", "D. Antirhumatismale", "E. Antirétroviraux"], answer: 2 },
+      { id: 135, subject: 'Medecine Legale', text: "7-. Les substances Opiacés (Codéine, Héroïne, Méthadone, Morphine, Opium...) Indiquez dans quelle classification ?", options: ["A. Les dépresseurs du système nerveux central", "B. Les stimulants du système nerveux", "C. Les hallucinogènes ou perturbateurs du système nerveux central", "D. Antibiotique", "E. Antidiabétique"], answer: 0 },
+      { id: 136, subject: 'Medecine Legale', text: "8-Les substances Amphétamines, Cocaïne, Caféine, Nicotine : Indiquez dans quelle classification ?", options: ["A. Les dépresseurs du système nerveux central", "B. Les stimulants du système nerveux", "C. Les hallucinogènes ou perturbateurs du système nerveux Central", "D. Les anticonvulsivants", "E. Les antihypertenseurs"], answer: 1 },
+      { id: 137, subject: 'Medecine Legale', text: "9-Les substances Cannabis et dérivés (haschich marijuana ...) et Hallucinogènes synthétiques (kétamine, LSD, Ecstasy(MDMA), indiquez dans quelle classification ?", options: ["A. Les dépresseurs du système nerveux central", "B. Les stimulants du système nerveux", "C. Les hallucinogènes ou perturbateurs du système nerveux Central", "D. Antibactérienne", "E. Anticancéreux"], answer: 2 },
+      { id: 138, subject: 'Medecine Legale', text: "10-Les certificats médicaux sont des actes destinés à constater ou à interpréter :", options: ["A. des faits d’ordre médical.", "B. des faits d’ordre policies", "C. des faits d’ordre economies", "D. des faits d’ordre culturel", "E. des faits d’ordre agriculture"], answer: 0 },
+      { id: 139, subject: 'Medecine Legale', text: "11-La rédaction des certificats doit savoir en règle strictement, une seul est juste, indiquez laquelle?", options: ["A. En double exemplaire", "B. Sur papier multi couleur", "C. Pas de conclusions", "D. En un exemplaire seulement", "E. Pas de date de constatation"], answer: 0 },
+      { id: 140, subject: 'Medecine Legale', text: "12-. En cas d’accident de la circulation, le certificat initial doit préciser clairement (un seul est juste), Indiquez laquelle?", options: ["A. la topographie des ecchymoses et des plaies avec le souci de l’utilisation des termes exacts", "B. Ne pas faire l’examen du malade", "C. Ne pas écrire la date et lieu de rédaction", "D. Ne pas d’avoir de signature personnelle du médecin rédacteur", "E. En un exemplaire seulement"], answer: 0 },
+      { id: 141, subject: 'Medecine Legale', text: "13-. En Accident de travail et Maladie professionnelle les certificats médicaux doit faire : (une seul est juste), Indiquez lequel ?", options: ["A. Du fait de la déclaration préalable faite pour l'ouverture des droits, il n'y a plus de secret", "B. Toujours remettre les certificats aux entourages", "C. Prescrire des arrêts de travail hors de proportion avec la gravité", "D. Délivrer un certificat sans avoir examiné le malade", "E. Pas de signature personnelle du médecin rédacteur"], answer: 0 },
+      { id: 142, subject: 'Medecine Legale', text: "14-Comment rédiger un certificat médical ? Une seul est juste, indiquez laquelle ?", options: ["A. Ecrire comme des «consultations» ou des « études »", "B. Ecrire comme dans l'ordonnance médicale", "C. Ecrire comme un rapport d'expertise médicale", "D. Par son intitulé", "E. Obligation déontologique avec condition de la force probante du certificat"], answer: 4 },
+      { id: 143, subject: 'Medecine Legale', text: "15-Qu' est ce que c'est un seuil thérapeutique?", options: ["A. Concentration minimale en dessous de laquelle aucune activité n'est obtenue.", "B. Concentration maximale apparaissent des effets indésirables.", "C. Zone intermédiaire dans laquelle les concentrations sont actives et non-toxiques.", "D. Concentration modérée", "E. concentrations efficacies"], answer: 0 },
+      { id: 144, subject: 'Medecine Legale', text: "16-Indiquer la definition de l'effets nocifs medicamenteuses", options: ["A. Pathologie iatrogène médicamenteuse avec effets toxiques", "B. Bonne tolerance médicamenteuse", "C. Bonne observance médicamenteuse", "D. Efficacité du traitement et pas de toxique médicamenteuse", "E. Efficacité superieur du traitement"], answer: 0 },
+      { id: 145, subject: 'Medecine Legale', text: "17-La signification de l'effets indésirables inexpliqués :", options: ["A. Effets idiosyncrasie", "B. Effets rebond", "C. Toxicité cumulative", "D. Surdosage", "E. Toxicité chronique"], answer: 0 },
+      { id: 146, subject: 'Medecine Legale', text: "18-Qu' est ce que c'est Thésaurismoses?", options: ["A. Intoxication par Métaux", "B. Intoxication par Paracétamol", "C. Intoxication par Penicillin", "D. Intoxication par Benzodiazépine", "E. Intoxication par Macrolide"], answer: 0 },
+      { id: 147, subject: 'Medecine Legale', text: "19-Indiquer la bonne definition de Toxicité aiguë :", options: ["A. L’absorption en une seule fois, d'une quantité excessive de toxiques.", "B. L’absorption en une seule fois, d'une petite quantité", "C. L’absorption en une seule fois, d'une quantité modérée", "D. L’absorption en plusieurs fois, d'une quantité excessive de toxiques", "E. L’absorption en plusieurs fois, d'une quantité modérée"], answer: 0 },
+      { id: 148, subject: 'Medecine Legale', text: "20-Ordonnance individuelle", options: ["A. Une prescription donnée par un médecin à une personne habilitée, donner à un patient", "B. Une prescription donnée par un médecin à une personne non habilitée, donner à un patient", "C. Une prescription donnée par un médecin ou un groupe de médecins à une personne habilitée à un groupe de patients.", "D. Une prescription donnée par un médecin ou un groupe de médecins à une personne non habilitée à un groupe de patients.", "E. Une prescription donnée par un infirmier, donner à un patient."], answer: 0 },
+      { id: 149, subject: 'Medecine Legale', text: "21-Ordonnance collective :", options: ["A. Une prescription donnée par un médecin ou un groupe de médecins à une personne habilitée, à donner à un groupe de patients.", "B. Une prescription donnée par un médecin ou un groupe de médecins à une personne non habilitée, à donner à un groupe de patients.", "C. Une prescription donnée par un médecin à une personne non habilitée, donner à un patient.", "D. Une prescription donnée par un médecin à une personne habilitée, donner à un patient.", "E. Une prescription donnée par un infirmier, donner à un patient"], answer: 0 },
+      { id: 150, subject: 'Medecine Legale', text: "22-L’identification exacte du patient est essentielle pour éviter que le médicament ne soit donné à la mauvaise personne :", options: ["A. Nom, Prénom, Date de naissance, Adresse, Sexe", "B. Ecrire multicouleur", "C. Pas de datée", "D. Pas de signature", "E. Négliger son devoir"], answer: 0 },
+      { id: 151, subject: 'Medecine Legale', text: "23-Les médecins sont tenus, dans toutes leurs prescriptions, d'observer, dans le cadre de la législation et de la réglementation en :", options: ["A. Vigueur, la plus stricte économie compatible avec l'efficacité du traitement", "B. Pas de vérification des posologies", "C. Pas de vérification des contre-indications", "D. Pas de prévention et traitement des effets secondaires", "E. Pas de devoir d'information du patient"], answer: 0 },
+      { id: 152, subject: 'Medecine Legale', text: "24- Sur le Contenu de l’ordonnance, l’ordonnance doit :", options: ["A. Etre claire, datée , signée par le prescripteur, lisiblement", "B. Ne pas commencer le plus en haut du corps de l’ordonnance", "C. Ne pas permettre l’identification du médecin", "D. Ne pas rédigée en langue ( traduction possible)", "E. Ne pas Mentionner l’âge et le poids du patient"], answer: 0 },
+      { id: 153, subject: 'Medecine Legale', text: "25-ផលវិបាកកំរិតធ្ងន់ក្នុងករណីពុលថ្នាំរ៉ាំរ៉ៃមានអ្វីខ្លះ? (ជ្រើសរើសចម្លើយខុស១)", options: ["A. Cirrhose du foie", "B. Polynévrite", "C. Délire", "D. Gastrite"], answer: 3 },
+      { id: 154, subject: 'Medecine Legale', text: "26-ក្នុងករណីពុលស្រាឬអាល់កុល Methylique(Méthanol) តើបង្កលក្ខណៈឲ្យមានជំងឺអ្វី? (ជ្រើសរើសចម្លើយត្រឹមត្រូវ១)", options: ["A. Cirrhose du foie", "B. Amblyopie", "C. Névrite Optique", "D. Polynévrite"], answer: 2 },
+      { id: 155, subject: 'Medecine Legale', text: "27-ក្នុងការពិនិត្យកាកសំណល់ឆ្អឹងកោសល្យវិច្ច័យតើត្រូវវិភាគអ្វីជាដំបូង? (ជ្រើសរើសចម្លើយត្រឹមត្រូវ១)", options: ["A. បែងចែកតាមប្រភេទឆ្អឹង", "B. តើជាឆ្អឹងកូនក្មេងឬមនុស្សពេញវ័យ", "C. កំណត់ឆ្អឹងតាមពូជសាសន៍", "D. កំណត់ជាឆ្អឹងមនុស្សឬសត្វពាហនៈ"], answer: 3 },
+      { id: 156, subject: 'Medecine Legale', text: "28-តាមការកំណត់ឆ្អឹងគេអាចវិភាគដឹងអ្វីខ្លះ? (ជ្រើសរើសចម្លើយ១ខុស)", options: ["A. ភេទជនរងគ្រោះ", "B. អាយុជនរងគ្រោះ", "C. ពូជសាសន៍", "D. កំណត់ច្បាស់ពីអត្តសញ្ញាណជនរងគ្រោះ"], answer: 3 },
+      { id: 157, subject: 'Medecine Legale', text: "29-គេអាចកំណត់ភេទជនរងគ្រោះតាមរយៈការសំណល់ឆ្អឹងអ្វី? (ជ្រើសរើសចម្លើយត្រឹមត្រូវ១)", options: ["A. ឆ្អឹងស្មា", "B. ឆ្អឹងខ្នង", "C. ឆ្អឹងអាងត្រគាក", "D. ឆ្អឹងកំភួនដៃ"], answer: 2 },
+      { id: 158, subject: 'Medecine Legale', text: "30-តាមកាកសំណល់ឆ្អឹង ការកំណត់អាយុជនរងគ្រោះប្រហាក់ប្រហែលដែលងាយជាងគេគឺ? (ជ្រើសរើសចម្លើយត្រឹមត្រូវ១)", options: ["A. ឆ្អឹងត្រគាក", "B. ឆ្អឹងលលាដ៍ក្បាល", "C. សន្លាក់ឆ្អឹងខ្ចីលើក្បាលឆ្អឹងវែង និងធ្មេញ", "D. ឆ្អឹងខ្នង"], answer: 2 },
+      { id: 159, subject: 'Medecine Legale', text: "31- L’ ARSENIC បង្កការពុលក្នុងលក្ខណៈជា (ជ្រើសរើសចម្លើយត្រឹមត្រូវ១)", options: ["A. Arsénicលោហៈ", "B. Anhydride ឬ acide arsénieux", "C. Arsénic រាវ", "D. Arsénic ឧស្ម័ន"], answer: 1 },
+      { id: 160, subject: 'Medecine Legale', text: "32- L’ ARSENIC បង្កការពុលក្នុងលក្ខណៈជា (ជ្រើសរើសចម្លើយត្រឹមត្រូវ១)", options: ["A. Arsénicលោហៈ", "B. Anhydride ឬ acide arsénieux", "C. Arsénic រាវ", "D. Arsénic ឧស្ម័ន"], answer: 1 },
+      { id: 161, subject: 'Medecine Legale', text: "33-Asénicបង្កការពុលតាមរយៈ? (ជ្រើសរើសចម្លើយត្រឹមត្រូវ១)", options: ["A. តាមផ្លូវដង្ហើម", "B. តាមការបង្ករបួសស្នាម", "C. តាមផ្លូវរំលាយអាហារ", "D. តាមការប៉ះពាល់លើស្បែក"], answer: 2 },
+      { id: 162, subject: 'Medecine Legale', text: "34-តំណាក់ការពុលដោយAsénicក្នុងលក្ខណៈធ្ងន់ធ្ងរមានរោគសញ្ញាលើសរីរាង្គអ្វីដែលសំខាន់បំផុត? (ជ្រើសរើសចម្លើយត្រឹមត្រូវ១)", options: ["A. វបត្តិភ្នែកនិងតំរងនោម", "B. វបត្តិបេះដូង", "C. រំលាយអាហារ", "D. សញ្ញាលើស្បែក"], answer: 0 },
+      { id: 163, subject: 'Medecine Legale', text: "35- ក្នុងករណីពុលAsénicរ៉ាំរ៉ៃ(Chronique)សញ្ញាអ្វីសំខាន់ជាងគេ(ជ្រើសរើសចម្លើយត្រឹមត្រូវ១)", options: ["A. ពងពណ៌សំរិទ្ធលើស្បែក", "B. វបត្តិរំលាយអាហារ", "C. វបត្តិប្រព័ន្ធសរសៃប្រសាទ", "D. វបត្តិតំរងនោម"], answer: 0 },
+      { id: 164, subject: 'Medecine Legale', text: "36- ក្នុងករណីពុលArsénic ក្នុងលក្ខណៈ(aigue)តើសញ្ញាលើក្រលៀន(Rein)មានអ្វីសំខាន់?(ជ្រើសរើសចម្លើយត្រឹមត្រូវ១)", options: ["A. Nephrite toxique", "B. Rein ទន់", "C. Rein សភាពកំដៅ", "D. Néphrite èpithéliale"], answer: 0 },
+      { id: 165, subject: 'Medecine Legale', text: "37-កាយវិភាគវិទ្យាក្នុងករណីពុលអាេសនិករ៉ាំរ៉ៃ(chronique)សញ្ញាមានអ្វីខ្លះ? (ជ្រើសរើសចម្លើយខុស១)", options: ["A. ដំេបៅលើRein nephrite toxique", "B. អន់ថយជាតិខ្លាញ់ក្នុងថ្លើម", "C. ច្រាលឈាមនិង និរលាកដល់ភ្នាសខាងក្រៅនៃស្រទាប់ក្រពះ", "D. អន់ថយជាតិខ្លាញ់ក្នុង Myocarde"], answer: 0 },
+      { id: 166, subject: 'Medecine Legale', text: "38-មធ្យោបាយស្រាវជ្រាវសារធាតុអាេសនិកលើជនរងគ្រោះមាន (ចម្លើយមួយខុស)", options: ["A. មធ្យោបាយ Marsh", "B. មធ្យោបាយ Cribier", "C. មធ្យោបាយMarsh និងCribier", "D. មធ្យោបាយអគ្គីសនីវិភាគ"], answer: 3 },
+      { id: 167, subject: 'Medecine Legale', text: "39- មធ្យោបាយMarsh ជាលទ្ធផលគេឃើញអ្វីបញ្ជាក់(ជ្រើសរើសចម្លើយត្រឹមត្រូវ១)", options: ["A. Hydrogène arsénieux", "B. Arsénic លោហៈ", "C. Tournesol ប្រែពណ៌លឿង", "D. Acide arsénieux"], answer: 1 },
+      { id: 168, subject: 'Medecine Legale', text: "40-កំរិតអាចបង្កការពុលអាចសម្លាប់របស់អាេសនិកមានប៉ុន្មាន? (ជ្រើសរើសចម្លើយត្រឹមត្រូវ១)", options: ["A. 10-40cg", "B. 30-40cg", "C. 10-12cg", "D. 10-15cg"], answer: 1 },
+      { id: 169, subject: 'Medecine Legale', text: "41- បារតក្នុងលក្ខណៈដូចម្តេចជាប្រភពដើមនៃការពុល(ជ្រើសរើសចម្លើយត្រឹមត្រូវ១)", options: ["A. លក្ខណៈជាលោហៈបារត", "B. លក្ខណៈរាវបារត", "C. ចំហាយជាអំបិលបារត", "D. Pâte de mercure"], answer: 2 },
+      { id: 170, subject: 'Medecine Legale', text: "42-ក្នុងករណីជនរងគ្រោះពុលបារតច្រើនកើតមានក្នុង? (ជ្រើសរើសចម្លើយ១ខុស)", options: ["A. គ្រោះថ្នាក់ប៉ះទង្គិច", "B. ក្នុងបទឧក្រិដ្ឋនិងអត្តឃាត", "C. ភាន់ច្រឡំដោយដន្យាក្នុងការប្រើប្រាស់", "D. ការប្រើប្រាស់ជាតិបារតក្នុងការព្យាបាល"], answer: 0 },
+      { id: 171, subject: 'Medecine Legale', text: "43-សញ្ញាគ្លីនិចសំខាន់ជាងគេក្នុងករណីពុលជាតិបារតទំរង់ធ្ងន់គឺ(ចម្លើយមួយត្រូវ)", options: ["A. រលាកបំពង់អាហារ", "B. រាគឈឺចុកចាប់ពោះខ្លាំង", "C. Oligurie និងanurie", "D. ចុះខ្សោយល្ហិតល្ហៃស្លកស្លាំង"], answer: 2 },
+      { id: 172, subject: 'Medecine Legale', text: "44- សញ្ញាគ្លីនិកសំគាល់ក្នុងករណីពុលបារតរ៉ាំរ៉ៃ(ជ្រើសរើសចម្លើយ១ខុស)", options: ["A. Stomatite", "B. Paralysie, Tremblement", "C. Néphrite ល្ហិតល្ហៃ", "D. ចុកពោះមានសញ្ញាលើស្បែក ពងបែក"], answer: 3 },
+      { id: 173, subject: 'Medecine Legale', text: "45-ករណីពុលដោយបារតលក្ខណៈធ្ងន់អាចវិវឌ្ឍន៍ទៅរកសេចក្តីស្លាប់ជាមធ្យមប៉ុន្មានម៉ោងឬប៉ុន្មានថ្ងៃ(ជ្រើសរើសចម្លើយត្រឹមត្រូវ១)", options: ["A. 24h ឬ48h", "B. ២ទៅ៣ថ្ងៃ", "C. ៤ទៅ៥ថ្ងៃ", "D. ១០ទៅ១៥ថ្ងៃឬរហ័ស24hទៅ72h"], answer: 3 },
+      { id: 174, subject: 'Medecine Legale', text: "46-ការវិភាគវិជ្ជសាស្រ្តក្នុងករណីពុលដោយបារតតើលទ្ធផលឃើញអ្វីខ្លះ?(ជ្រើសរើសចម្លើយ១ខុស)", options: ["A. ដំេបៅក្រលៀនធ្ងន់ធ្ងរ", "B. ស្រទាប់ពោះវៀនច្រាលឈាម មានដុំពក និងចំនុចរលួយ", "C. ភ្នាសក្រពះមានកកឈាម", "D. សម្រស់សាកសពណ៍ផ្កាឈូក(Rose)"], answer: 3 },
+      { id: 175, subject: 'Medecine Legale', text: "47-ក្នុងករណីពុលដោយបារតកាយវិភាគរោគសាស្ត្រលើក្រលៀនឃើញអ្វី? (ជ្រើសរើសចម្លើយត្រឹមត្រូវ១)", options: ["A. ដំេបៅក្រលៀនធ្ងន់ធ្ងរ ស ទន់", "B. រលាកក្រលៀនរ៉ាំរ៉ៃ", "C. ក្រលៀនទន់ក្រហម", "D. ក្រលៀនដំេបៅមានឈាមកក"], answer: 0 },
+      { id: 176, subject: 'Medecine Legale', text: "48-ក្នុងករណីពុលដោយបារតកាយវិភាគរោគសាស្ត្រលើស្រទាប់ពោះវៀនឃើញអ្វី(ជ្រើសរើសចម្លើយមួយត្រឹមត្រូវ)", options: ["A. ស្រទាប់ពោះវៀនហើមមានឈាមកក", "B. ស្រទាប់ពោះវៀនច្រាលឈាមមានដុំពក និងចំនុចរលួយ", "C. ស្រទាប់ពោះវៀនរលាកដល់ស្រទាប់លើ(Superficielle)", "D. ស្រទាប់ពោះវៀនមានដុំសុះ"], answer: 1 },
+      { id: 177, subject: 'Medecine Legale', text: "49-ក្នុងករណីពុលដោយបារតតើការស្រាវជ្រាវរកសារធាតុបារតអាចធ្វើតាមវិធីណា?(ជ្រើសរើសចម្លើយមួយត្រឹមត្រូវ)", options: ["A. ប្រតិកម្មគីមីបំផ្លែង", "B. ប្រតិកម្មគីមីបំបែក", "C. ប្រតិកម្មពណ៌ឬតាមធគ្គីសនីវិភាគ", "D. ប្រតិកម្មចំហាយ"], answer: 2 },
+      { id: 178, subject: 'Medecine Legale', text: "50-កំរិតការពុលឬសម្លាប់ដោយបារតមាន?(ជ្រើសរើសចម្លើយមួយត្រឹមត្រូវ)", options: ["A. 10-12cg", "B. 10-40cg", "C. 20-30cg", "D. 15-20cg"], answer: 1 },
+      { id: 179, subject: 'Medecine Legale', text: "51-សំណរក្នVងលក្ខណ:ណាដែលបង្កឲ្យពុល?(េ្រជើសេរCសចំេលើយមួយ្រតឹម្រតEវ)", options: ["A. លក្ខណ:លោហៈ", "B. លក្ខណ:រាវ", "C. លក្ខណ:បំផ្លែងដោយសារធាតុផ្សេងៗ", "D. លក្ខណ:អំបិលសំណរ"], answer: 3 },
+      { id: 180, subject: 'Medecine Legale', text: "52-ករណីពុលសំណរបណ្ដាលឲ្យមានជាជំងឺអ្វីសំខាន់ផ្ទាល់?(េ្រជើសេរCសចំេលើយមួយ្រតឹម្រតEវ)", options: ["A. Colique de plomb", "B. Saturnisme", "C. Anémie", "D. Néphrite chronique"], answer: 1 },
+      { id: 181, subject: 'Medecine Legale', text: "53-ករណីពុលសំណរក្នVងទំរង់ធ្ងន់ដោយការលេបក្នVងកំរិតអតិបរមាជនរងគ្រោះអាចស្លាប់ក្នVងរយះ (េ្រជើសេរCសចំេលើយមួយ្រតឹម្រតEវ)", options: ["A. 28h-48h", "B. 2ថ្ងៃទៅ3ថ្ងៃ", "C. មួយសបា្ដហ៏", "D. 10ថ្ងៃទៅ 15ថ្ងៃ"], answer: 1 },
+      { id: 182, subject: 'Medecine Legale', text: "54-សញ្ញាពុលសំណរក្នVងកំរិតអតិបរមាមានអ្វីខ្លះ?(េ្រជើសេរCសចំេលើយមួយ្រតឹម្រតEវ)", options: ["A. ក្អួតចង្អោរ ឈឺពោះ រាគ ឬទល់លាមក", "B. ស្ពឹករសពន់", "C. ប្រកាច់បន្តាប់មកស្លាប់", "D. វបត្តិសៃស្របសាទ: Polynévrite"], answer: 3 },
+      { id: 183, subject: 'Medecine Legale', text: "55-សញ្ញាពុលសំណរក្នVងទំង់រ៉ាំរ៉ៃមានអ្វីខ្លះ?(េ្រជើសេរCសចំេលើយមួយ្រតឹម្រតEវ)", options: ["A. Saturnisme professionnel", "B. Colique de plomb", "C. Anémie Saturnique", "D. រលាកករេលៀនរ៉ាំរ៉ៃ"], answer: 0 },
+      { id: 184, subject: 'Medecine Legale', text: "56-តើColique de plomជាអ្វី?(េ្រជើសេរCសចំេលើយមួយខុស)", options: ["A. Colique abdoaminale classique ក្នុងករណីពុលសំណរ", "B. Colique abdominale ដែលអាចបំបាត់បានតែដោយ Morphineតែមួយគត់", "C. Colique abdominale Spamodique ធម្មតា", "D. Colique abdominale du Saturnisme"], answer: 2 },
+      { id: 185, subject: 'Medecine Legale', text: "57-ក្នុងករណីពុលដោយសំណរកាយវិភាគរោគសាស្ត្រសំគាល់លើសញ្ញាអ្វីសំខាន់?(េ្រជើសេរCសចំេលើយមួយត្រឹមត្រូវ)", options: ["A. លើថ្លើមមានការអន់ថយជាតិខ្លាញ់", "B. លើក្រលៀនហើមធំមានដំបៅ", "C. លើក្រលៀនហើមធំទន់ ពណ៌ប្រផេះ និង Néphrite", "D. រលាកស្រទាប់ពោះវៀន ក្រពះ និងច្រាលឈាម"], answer: 2 },
+      { id: 186, subject: 'Medecine Legale', text: "58-ករណីពុលសំណរសញ្ញាកាយវិភាគរោគសាស្ត្រលើក្រលៀនខុសពីករណីពុលដោយបារតនៅត្រង់ណា? (េ្រជើសេរCសចំេលើយមួយ្រតឹម្រតEវ)", options: ["A. ក្រលៀនហើមធំ", "B. ក្រលៀនទន់", "C. ក្រលៀនពណ៌ប្រផេះ", "D. ក្រលៀនរលាកដំបៅ"], answer: 2 },
+      { id: 187, subject: 'Medecine Legale', text: "59-ការស្រាវជ្រាវរកសារធាតុសំណរលើជនរងគ្រោះគេធ្វើវត្ថុអ្វី?(េ្រជើសេរCសចំេលើយមួយ្រតឹម្រតEវ)", options: ["A. កំអួត", "B. សក់", "C. លាមក", "D. ទឹកចំរាញ់ Viscère"], answer: 3 },
+      { id: 188, subject: 'Medecine Legale', text: "60-វិធីស្រាវជ្រាវរកជាតិសំណរលើជនរងគ្រោះអាចធ្វើតាមវិធីអ្វី(េ្រជើសេរCសចំេលើយមួយ្រតឹម្រតEវ)", options: ["A. ប្រតិកម្មពណ៌លើទឹកចំរាញ់Viscère", "B. តាមមេធ្យោបាយ MarshឬCribier", "C. តាមអគ្គីសនីវិភាគ ឬ Dosage លើទឹកចំរាញ់ Viscère", "D. ប្រតិកម្មគីមីលើទឹកចំរាញ់ Viscère"], answer: 2 },
+      { id: 189, subject: 'Medecine Legale', text: "61-ជាទូទៅកំរិតជាតិអាល់កុលក្នុងឈាមជាមធ្យមដែលកំណត់កំរិតហាមឃាត់តាមច្បាប់ប្រទេសមានប៉ុន្មាន?(េ្រជើសេរCសចំេលើយមួយ្រតឹម្រតEវ)", options: ["A. 0,2g/lឬ 0,5g/l", "B. 1g/l", "C. 1,5g/l", "D. 2g/l"], answer: 0 },
+      { id: 190, subject: 'Medecine Legale', text: "62-បញ្ហាប្រើប្រាស់អាល់កុលជាភេសជ្ជៈលើសកំរិតតើមានបញ្ហាប៉ះពាល់អ្វីខ្លះដល់សង្គម(េ្រជើសេរCសចំេលើយមួយ្រតឹម្រតEវ)", options: ["A. គ្រោះថ្នាក់សុខភាព", "B. គ្រោះថ្នាក់ការងារ", "C. គ្រោះថ្នាក់ចរាចរ", "D. គ្រោះថ្នាក់គ្រួសារ"], answer: 2 },
+      { id: 191, subject: 'Medecine Legale', text: "63-ជាតិអាល់កុលមានប្រតិកម្មទៅលើសរីរាង្គអ្វីជាសំខាន់(េ្រជើសេរCសចំេលើយមួយ្រតឹម្រតEវ)", options: ["A. លើប្រព័ន្ធសាច់ដុំ(Musculaire)", "B. លើប្រព័ន្ធប្រសាទ(Neurologie)", "C. លើប្រព័ន្ធឈាម(Hematologie)", "D. លើប្រព័ន្ធសាច់ដុំនិង ប្រសាទ(Neuro-Musculaire)"], answer: 3 },
+      { id: 192, subject: 'Medecine Legale', text: "64-តាមការតាមដានប្រតិកម្មពុលអាល់កុលភ្លាមៗគេធ្វើតាមវិធីអ្វី?(េ្រជើសេរCសចំេលើយមួយ្រតឹម្រតEវ)", options: ["A. សភាពសញ្ញាគ្លីនិករបស់អ្នកប្រើប្រាស់ជាតិអាល់កុល", "B. សិក្សាលើការប្រែប្រួលជាតិអាល់កុលក្នុងឈាម", "C. ចំណេះបរិមាណអាល់កុល", "D. ប្រភេទអាល់កុល"], answer: 1 },
+      { id: 193, subject: 'Medecine Legale', text: "65-ការកំណត់វត្តមានជាតិអាល់កុលក្នុងឈាមក្រៅពីការពិនិត្យឈាមគេអាចធ្វើតាមមធ្យោបាយអ្វីទៀត(េ្រជើសេរCសចំេលើយមួយ្រតឹម្រតEវ)", options: ["A. តាមគ្លីនិក", "B. តាមលក្ខណគ្រោះថ្នាក់", "C. អាល់កុលតេស្ត", "D. តាមការប្រមូលពណ៌មានជុំវិញ"], answer: 2 },
+      { id: 194, subject: 'Medecine Legale', text: "66-ក្នុងការបូមឈាមពិនិត្យជាតិអាល់កុលជាលក្ខណនិតិក្រមតើត្រូវធ្វើដូចម្តេច?(េ្រជើសេរCសចំេលើយមួយ្រតឹម្រតEវ)", options: ["A. ដោយបញ្ជាក់ងារមានសមត្ថកិច្ច", "B. ដោយគ្រូពេទ្យមានភារកិច្ច", "C. ដោយមានកំណត់ហេតុច្បាស់លាស់", "D. ដោយសំភារៈស្អាតត្រឹមត្រូវនិងច្បាស់លាស់"], answer: 0 },
+      { id: 195, subject: 'Medecine Legale', text: "67-លក្ខណត្រឹមត្រូវតាមនិតិក្រមមានអ្វីខ្លះ?ក្នុងការប្រមូលឈាមយកជាតិ(េ្រជើសេរCសចំេលើយមួយ្រតឹម្រតEវ)", options: ["A. លក្ខណ:សំភារៈល្អប្រសើរ ស្អាតមិនមានដិតដាមជាតិអាល់កុល", "B. រក្សាដបឈាមឲ្យបានល្អជៀសវាងការក្លែងបន្លំឬច្រឡំជាយថាហេតុ", "C. ការបូមឈាមត្រូវធ្វើដោយមានការកត់ត្រាច្បាស់លាស់ និងគ្រូពេទ្យជាចាំបាច់", "D. ទាំងបីខាងលើ"], answer: 3 },
+      { id: 196, subject: 'Medecine Legale', text: "68-ក្នុងចំណោមពីរបុព្វហេតុដោយការបើកបរមានជាតិអាល់កុលលើសកំរិត តើបច្ច័យក្នុងការវិនិច្ឆ័យរបស់ច្បាប់ពាក់ព័ន្ធលើអ្វី(េ្រជើសេរCសចំេលើយមួយ្រតឹម្រតEវ)", options: ["A. អប់រំ", "B. ពិន័យ", "C. បណ្ណបើកបរ", "D. តុលាការ"], answer: 2 },
+      { id: 197, subject: 'Medecine Legale', text: "69-ការកំណត់ឆ្អឹងដែលអាចកំណត់ភេទ ជនជាតិជនរងគ្រោះបានគឺ(េ្រជើសេរCសចំេលើយមួយ្រតឹម្រតEវ)", options: ["A. ឆ្អឹងអាងត្រគាក", "B. ឆ្អឹងលលាដ៍ក្បាល", "C. លក្ខណ:ទូលាយនៃប្រហោងឆ្អឹងអាងត្រគាក", "D. លក្ខណ:ស្នាមភ្ជាប់បំណែកឆ្អឹងលលាដ៍ក្បាល"], answer: 3 },
+      { id: 198, subject: 'Medecine Legale', text: "70-លក្ខណៈខុសគ្នារវាងកាកសំណល់ឆ្អឹងអាងត្រគាកមនុស្សប្រុស និងមនុស្សស្រីនៅត្រង់ចំណុច(េ្រជើសេរCសចំេលើយមួយខុស)", options: ["A. ប្រហោងអាងត្រគាកចង្អៀតជាងមនុស្សស្រី", "B. មុំDgive-pubien ឆ្អឹងPubisចង្អៀតជាងមនុស្សស្រី", "C. ទំរង់ឆ្អឹងត្រគាករួមជាងមនុស្សស្រី", "D. ឆ្អឹងអាងត្រគាកខ្លីជាងមនុស្សស្រី"], answer: 3 },
+    ];
+
+    const shuffleArray = (array) => {
+      const shuffled = [...array];
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
+      return shuffled;
+    };
+
+    const shuffleOptionsAndAnswer = (question) => {
+      const optionsWithIndex = question.options.map((opt, idx) => ({ text: opt, originalIndex: idx }));
+      const shuffledOptions = shuffleArray(optionsWithIndex);
+      const newAnswerIndex = shuffledOptions.findIndex(opt => opt.originalIndex === question.answer);
+      return {
+        ...question,
+        options: shuffledOptions.map(opt => opt.text),
+        answer: newAnswerIndex,
+        originalQuestionId: question.id
+      };
+    };
+
+    function App() {
+      const [currentView, setCurrentView] = useState('setup');
+      const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+      
+      const [subjectFilter, setSubjectFilter] = useState('ទាំងអស់');
+      const [rangeStart, setRangeStart] = useState(1);
+      const [rangeEnd, setRangeEnd] = useState(rawQuestions.length);
+      const [randomizeQs, setRandomizeQs] = useState(false);
+      const [randomizeAns, setRandomizeAns] = useState(false);
+
+      const [activeQuizQuestions, setActiveQuizQuestions] = useState([]);
+      const [currentIndex, setCurrentIndex] = useState(0);
+      const [userAnswers, setUserAnswers] = useState({});
+
+      const loadSession = () => {
+        try {
+          const saved = localStorage.getItem('mediQuizSession');
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            if (parsed.activeQuizQuestions && parsed.activeQuizQuestions.length > 0) {
+              return parsed;
+            }
+          }
+        } catch (e) { console.error('បរាជ័យក្នុងការទាញយកទិន្នន័យ', e); }
+        return null;
+      };
+
+      const [savedSession, setSavedSession] = useState(loadSession());
+
+      useEffect(() => {
+        if (activeQuizQuestions.length > 0 && (currentView === 'quiz' || currentView === 'results')) {
+          const sessionData = { activeQuizQuestions, currentIndex, userAnswers, currentView };
+          localStorage.setItem('mediQuizSession', JSON.stringify(sessionData));
+          setSavedSession(sessionData);
+        }
+      }, [activeQuizQuestions, currentIndex, userAnswers, currentView]);
+
+      const filteredQuestions = useMemo(() => {
+        let filtered = rawQuestions;
+        if (subjectFilter !== 'ទាំងអស់') {
+          filtered = rawQuestions.filter(q => q.subject === subjectFilter);
+        }
+        return filtered;
+      }, [subjectFilter]);
+
+      useEffect(() => {
+        setRangeStart(1);
+        setRangeEnd(filteredQuestions.length);
+      }, [filteredQuestions.length, subjectFilter]);
+
+      const startQuiz = () => {
+        const startIdx = Math.max(0, rangeStart - 1);
+        const endIdx = Math.min(filteredQuestions.length, rangeEnd);
+        let selectedQs = filteredQuestions.slice(startIdx, endIdx);
+
+        if (selectedQs.length === 0) {
+          alert("មិនមានសំណួរក្នុងចន្លោះនេះទេ។");
+          return;
+        }
+
+        if (randomizeQs) selectedQs = shuffleArray(selectedQs);
+        if (randomizeAns) selectedQs = selectedQs.map(q => shuffleOptionsAndAnswer(q));
+        else selectedQs = selectedQs.map(q => ({...q, originalQuestionId: q.id}));
+
+        setActiveQuizQuestions(selectedQs);
+        setCurrentIndex(0);
+        setUserAnswers({});
+        setCurrentView('quiz');
+        setIsSidebarOpen(false);
+      };
+
+      const resumeQuiz = () => {
+        if (savedSession) {
+          setActiveQuizQuestions(savedSession.activeQuizQuestions);
+          setCurrentIndex(savedSession.currentIndex);
+          setUserAnswers(savedSession.userAnswers);
+          setCurrentView(savedSession.currentView || 'quiz');
+        }
+      };
+
+      const handleAnswerSelect = (optionIndex) => {
+        if (userAnswers[currentIndex] !== undefined) return;
+        setUserAnswers(prev => ({ ...prev, [currentIndex]: optionIndex }));
+      };
+
+      const nextQuestion = () => {
+        if (currentIndex < activeQuizQuestions.length - 1) {
+          setCurrentIndex(prev => prev + 1);
+        } else {
+          setCurrentView('results');
+        }
+      };
+
+      const prevQuestion = () => {
+        if (currentIndex > 0) setCurrentIndex(prev => prev - 1);
+      };
+
+      const calculateScore = () => {
+        let correct = 0;
+        activeQuizQuestions.forEach((q, idx) => {
+          if (userAnswers[idx] === q.answer) correct++;
+        });
+        return correct;
+      };
+
+      const renderHeader = () => (
+        <header className="bg-white shadow-sm sticky top-0 z-30">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+            <div className="flex items-center space-x-2 text-indigo-600">
+              {(currentView === 'quiz' || currentView === 'results') && (
+                <button 
+                  className="mr-2 lg:hidden p-1 rounded-md text-gray-500 hover:bg-gray-100 transition"
+                  onClick={() => setIsSidebarOpen(true)}
+                >
+                  <Menu size={24} />
+                </button>
+              )}
+              <BookOpen size={28} />
+              <h1 className="text-2xl font-bold tracking-tight text-gray-900 flex-shrink-0">MediQuiz Pro</h1>
+            </div>
+            <div className="flex space-x-3">
+              {currentView !== 'setup' && (
+                <button 
+                  onClick={() => setCurrentView('setup')}
+                  className="flex items-center px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  <Home size={16} className="mr-2" />
+                  ទំព័រដើម
+                </button>
+              )}
+            </div>
+          </div>
+        </header>
+      );
+
+      const renderSidebar = () => {
+        if (currentView !== 'quiz' && currentView !== 'results') return null;
+
+        return (
+          <React.Fragment>
+            {isSidebarOpen && (
+              <div 
+                className="fixed inset-0 z-40 bg-gray-900 bg-opacity-50 lg:hidden"
+                onClick={() => setIsSidebarOpen(false)}
+              />
+            )}
+            
+            <div className={`
+              fixed inset-y-0 left-0 z-50 w-72 bg-white shadow-2xl transform transition-transform duration-300 ease-in-out
+              lg:static lg:block lg:translate-x-0 lg:z-0 lg:shadow-none lg:border-r lg:border-gray-200
+              ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+            `}>
+              <div className="h-full flex flex-col">
+                <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-indigo-50/50">
+                  <h3 className="font-bold text-indigo-900">បញ្ជីសំណួរ ({activeQuizQuestions.length})</h3>
+                  <button className="lg:hidden p-1 text-gray-500 hover:bg-gray-200 rounded-md" onClick={() => setIsSidebarOpen(false)}>
+                    <X size={20} />
+                  </button>
+                </div>
+                <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
+                  <div className="grid grid-cols-5 gap-3">
+                    {activeQuizQuestions.map((q, idx) => {
+                      const isAnswered = userAnswers[idx] !== undefined;
+                      const isCorrect = isAnswered && userAnswers[idx] === q.answer;
+                      const isCurrent = currentIndex === idx;
+                      
+                      let btnClass = "w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm border-2 transition-all duration-200 ";
+                      
+                      if (isCurrent) {
+                        btnClass += "ring-4 ring-indigo-200 border-indigo-600 text-indigo-700 bg-indigo-50 transform scale-110 ";
+                      } else if (isAnswered) {
+                        if (isCorrect) btnClass += "bg-green-100 border-green-500 text-green-700 ";
+                        else btnClass += "bg-red-100 border-red-500 text-red-700 ";
+                      } else {
+                        btnClass += "border-gray-300 text-gray-500 hover:bg-gray-100 hover:border-gray-400 ";
+                      }
+
+                      return (
+                        <button 
+                          key={idx} 
+                          onClick={() => { 
+                            setCurrentIndex(idx); 
+                            if (currentView === 'results') setCurrentView('quiz');
+                            setIsSidebarOpen(false); 
+                          }} 
+                          className={btnClass}
+                          title={`ទៅកាន់សំណួរទី ${idx + 1}`}
+                        >
+                          {idx + 1}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div className="p-4 border-t text-xs text-gray-500 flex justify-around bg-gray-50">
+                   <div className="flex items-center"><div className="w-3 h-3 rounded-full bg-green-500 mr-1"></div> ត្រូវ</div>
+                   <div className="flex items-center"><div className="w-3 h-3 rounded-full bg-red-500 mr-1"></div> ខុស</div>
+                   <div className="flex items-center"><div className="w-3 h-3 rounded-full border-2 border-gray-300 mr-1"></div> មិនទាន់</div>
+                </div>
+              </div>
+            </div>
+          </React.Fragment>
+        );
+      };
+
+      const renderSetupView = () => (
+        <div className="max-w-3xl mx-auto py-10 px-4 sm:px-6">
+          {savedSession && (
+            <div className="mb-8 p-6 bg-indigo-50 border border-indigo-200 rounded-2xl flex flex-col sm:flex-row justify-between items-center gap-4 shadow-sm">
+              <div>
+                <h3 className="text-lg font-bold text-indigo-900 mb-1 flex items-center">
+                  <Save className="mr-2" size={20} /> អ្នកមានការធ្វើតេស្តដែលមិនទាន់បញ្ចប់!
+                </h3>
+                <p className="text-sm text-indigo-700">អ្នកបានធ្វើដល់សំណួរទី {savedSession.currentIndex + 1} នៃ {savedSession.activeQuizQuestions.length} សំណួរ</p>
+              </div>
+              <button 
+                onClick={resumeQuiz}
+                className="w-full sm:w-auto flex items-center justify-center px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-md transition-all transform hover:-translate-y-1"
+              >
+                 បន្តការធ្វើតេស្តចាស់
+              </button>
+            </div>
+          )}
+
+          <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100">
+            <div className="bg-indigo-600 px-6 py-8 text-white text-center">
+              <h2 className="text-3xl font-extrabold mb-2">កំណត់ការធ្វើតេស្តថ្មី</h2>
+              <p className="text-indigo-100">រៀបចំការប្រឡងសាកល្បងពេទ្យរបស់អ្នក។</p>
+            </div>
+            
+            <div className="p-8 space-y-8">
+              <div className="space-y-3">
+                <label className="text-sm font-semibold text-gray-700 uppercase tracking-wider">ជ្រើសរើសមុខវិជ្ជា</label>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {['ទាំងអស់', 'Anesthesie', 'Psychiatrie', 'Medecine Legale'].map(subject => (
+                    <button
+                      key={subject}
+                      onClick={() => setSubjectFilter(subject)}
+                      className={`py-3 px-4 rounded-xl text-sm font-medium transition-all ${
+                        subjectFilter === subject 
+                          ? 'bg-indigo-600 text-white shadow-md transform scale-105' 
+                          : 'bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200'
+                      }`}
+                    >
+                      {subject}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-gray-500 text-right mt-1">មានចំនួន {filteredQuestions.length} សំណួរ</p>
+              </div>
+
+              <hr className="border-gray-100" />
+
+              <div className="space-y-3">
+                <label className="text-sm font-semibold text-gray-700 uppercase tracking-wider">ជ្រើសរើសចន្លោះសំណួរ (Range)</label>
+                <div className="flex items-center space-x-4">
+                  <div className="flex-1">
+                    <span className="text-xs text-gray-500 mb-1 block">ពីលេខ</span>
+                    <input 
+                      type="number" 
+                      min={1} 
+                      max={rangeEnd}
+                      value={rangeStart}
+                      onChange={(e) => setRangeStart(Number(e.target.value))}
+                      className="w-full border-gray-300 rounded-lg shadow-sm focus:border-indigo-500 focus:ring-indigo-500 bg-gray-50 px-4 py-2 border text-gray-700"
+                    />
+                  </div>
+                  <div className="text-gray-400 mt-5">ដល់</div>
+                  <div className="flex-1">
+                    <span className="text-xs text-gray-500 mb-1 block">ត្រឹមលេខ</span>
+                    <input 
+                      type="number" 
+                      min={rangeStart} 
+                      max={filteredQuestions.length}
+                      value={rangeEnd}
+                      onChange={(e) => setRangeEnd(Number(e.target.value))}
+                      className="w-full border-gray-300 rounded-lg shadow-sm focus:border-indigo-500 focus:ring-indigo-500 bg-gray-50 px-4 py-2 border text-gray-700"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <hr className="border-gray-100" />
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <label className="flex items-center p-4 border rounded-xl cursor-pointer hover:bg-gray-50 transition-colors">
+                  <div className="relative">
+                    <input 
+                      type="checkbox" 
+                      className="sr-only" 
+                      checked={randomizeQs}
+                      onChange={() => setRandomizeQs(!randomizeQs)}
+                    />
+                    <div className={`block w-14 h-8 rounded-full transition-colors ${randomizeQs ? 'bg-indigo-500' : 'bg-gray-300'}`}></div>
+                    <div className={`dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform ${randomizeQs ? 'transform translate-x-6' : ''}`}></div>
+                  </div>
+                  <div className="ml-4">
+                    <div className="text-sm font-semibold text-gray-800">ច្របល់សំណួរ</div>
+                    <div className="text-xs text-gray-500">ប្តូរលំដាប់សំណួរមិនតាមលេខ</div>
+                  </div>
+                </label>
+
+                <label className="flex items-center p-4 border rounded-xl cursor-pointer hover:bg-gray-50 transition-colors">
+                  <div className="relative">
+                    <input 
+                      type="checkbox" 
+                      className="sr-only" 
+                      checked={randomizeAns}
+                      onChange={() => setRandomizeAns(!randomizeAns)}
+                    />
+                    <div className={`block w-14 h-8 rounded-full transition-colors ${randomizeAns ? 'bg-indigo-500' : 'bg-gray-300'}`}></div>
+                    <div className={`dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform ${randomizeAns ? 'transform translate-x-6' : ''}`}></div>
+                  </div>
+                  <div className="ml-4">
+                    <div className="text-sm font-semibold text-gray-800">ច្របល់ចម្លើយ</div>
+                    <div className="text-xs text-gray-500">ប្តូរទីតាំងចម្លើយ A,B,C,D</div>
+                  </div>
+                </label>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-4 pt-4">
+                <button 
+                  onClick={startQuiz}
+                  className="flex-1 flex justify-center items-center py-4 px-6 border border-transparent rounded-xl shadow-lg text-lg font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition-all transform hover:-translate-y-1"
+                >
+                  <Play className="mr-2" size={24} /> ចាប់ផ្តើមធ្វើតេស្ត
+                </button>
+                <button 
+                  onClick={() => setCurrentView('list')}
+                  className="flex-1 flex justify-center items-center py-4 px-6 border-2 border-indigo-100 rounded-xl shadow-sm text-lg font-bold text-indigo-700 bg-white hover:bg-indigo-50 transition-all"
+                >
+                  <List className="mr-2" size={24} /> មើលសំណួរទាំងអស់
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+
+      const renderListView = () => (
+        <div className="max-w-4xl mx-auto py-8 px-4">
+          <div className="flex justify-between items-end mb-6">
+            <div>
+              <h2 className="text-3xl font-bold text-gray-900">បញ្ជីសំណួរ (MCQs)</h2>
+              <p className="text-gray-500 mt-1">សរុបមាន {filteredQuestions.length} សំណួរ ក្នុងផ្នែក {subjectFilter}</p>
+            </div>
+          </div>
+
+          <div className="space-y-6">
+            {filteredQuestions.map((q, i) => (
+              <div key={q.id} className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                <div className="flex space-x-3 mb-4">
+                  <span className="bg-indigo-100 text-indigo-800 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wide h-fit">
+                    សំណួរ {i + 1}
+                  </span>
+                  <span className="bg-gray-100 text-gray-600 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wide h-fit">
+                    {q.subject}
+                  </span>
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 mb-4 whitespace-pre-line">{q.text}</h3>
+                <div className="space-y-2 pl-2 border-l-4 border-indigo-100">
+                  {q.options.map((opt, optIdx) => (
+                    <div 
+                      key={optIdx} 
+                      className={`p-3 rounded-lg text-sm flex items-center ${
+                        optIdx === q.answer 
+                          ? 'bg-green-50 border border-green-200 text-green-800 font-medium' 
+                          : 'text-gray-600 bg-gray-50 border border-transparent'
+                      }`}
+                    >
+                      {optIdx === q.answer && <CheckCircle2 size={16} className="mr-2 text-green-500 flex-shrink-0" />}
+                      {optIdx !== q.answer && <div className="w-4 h-4 mr-2 rounded-full border border-gray-300 flex-shrink-0"></div>}
+                      <span className="whitespace-pre-line">{opt}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+
+      const renderQuizView = () => {
+        const question = activeQuizQuestions[currentIndex];
+        const progress = ((currentIndex + 1) / activeQuizQuestions.length) * 100;
+        const isLast = currentIndex === activeQuizQuestions.length - 1;
+        const hasAnswered = userAnswers[currentIndex] !== undefined;
+
+        return (
+          <div className="max-w-3xl mx-auto py-8 px-4 sm:px-6">
+            <div className="mb-8">
+              <div className="flex justify-between text-sm font-medium text-gray-500 mb-2">
+                <span>សំណួរទី {currentIndex + 1} នៃ {activeQuizQuestions.length}</span>
+                <span>{Math.round(progress)}%</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2.5">
+                <div className="bg-indigo-600 h-2.5 rounded-full transition-all duration-300" style={{ width: `${progress}%` }}></div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden mb-6">
+              <div className="p-6 sm:p-10">
+                <div className="inline-block bg-indigo-50 text-indigo-700 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wide mb-4">
+                  {question.subject}
+                </div>
+                <h2 className="text-2xl font-semibold text-gray-900 leading-snug mb-8 whitespace-pre-line">
+                  {question.text}
+                </h2>
+
+                <div className="space-y-4">
+                  {question.options.map((opt, idx) => {
+                    const isSelected = userAnswers[currentIndex] === idx;
+                    const isCorrectAns = idx === question.answer;
+
+                    let styling = "w-full text-left p-4 rounded-xl border-2 transition-all flex items-center group ";
+                    let circleClass = "flex-shrink-0 w-6 h-6 rounded-full border-2 mr-4 flex items-center justify-center ";
+
+                    if (hasAnswered) {
+                      if (isCorrectAns) {
+                        styling += "border-green-500 bg-green-50 text-green-900 shadow-sm";
+                        circleClass += "border-green-500 bg-green-500";
+                      } else if (isSelected) {
+                        styling += "border-red-500 bg-red-50 text-red-900 shadow-sm";
+                        circleClass += "border-red-500 bg-red-500";
+                      } else {
+                        styling += "border-gray-200 text-gray-400 bg-gray-50";
+                        circleClass += "border-gray-300";
+                      }
+                    } else {
+                      styling += "border-gray-200 hover:border-indigo-300 hover:bg-indigo-50 text-gray-700";
+                      circleClass += "border-gray-300 group-hover:border-indigo-400";
+                    }
+
+                    return (
+                      <button
+                        key={idx}
+                        disabled={hasAnswered}
+                        onClick={() => handleAnswerSelect(idx)}
+                        className={styling}
+                      >
+                        <div className={circleClass}>
+                          {hasAnswered && isCorrectAns && <CheckCircle2 size={16} className="text-white" />}
+                          {hasAnswered && isSelected && !isCorrectAns && <XCircle size={16} className="text-white" />}
+                        </div>
+                        <span className="text-lg whitespace-pre-line flex-1">
+                          {opt}
+                        </span>
+                        {hasAnswered && isCorrectAns && <span className="ml-2 text-xs font-bold text-green-600 uppercase flex-shrink-0">ត្រឹមត្រូវ</span>}
+                        {hasAnswered && isSelected && !isCorrectAns && <span className="ml-2 text-xs font-bold text-red-500 uppercase flex-shrink-0">ខុស</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              
+              <div className="bg-gray-50 p-4 sm:px-10 border-t border-gray-100 flex justify-between items-center">
+                <button
+                  onClick={prevQuestion}
+                  disabled={currentIndex === 0}
+                  className={`flex items-center px-4 py-2 rounded-lg font-medium transition-colors ${
+                    currentIndex === 0 
+                      ? 'text-gray-300 cursor-not-allowed' 
+                      : 'text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  <ChevronLeft size={20} className="mr-1" /> ថយក្រោយ
+                </button>
+
+                <button
+                  onClick={nextQuestion}
+                  disabled={!hasAnswered}
+                  className={`flex items-center px-6 py-3 rounded-lg font-bold shadow-sm transition-all ${
+                    hasAnswered 
+                      ? 'bg-indigo-600 text-white hover:bg-indigo-700 transform hover:scale-105' 
+                      : 'bg-gray-300 text-gray-100 cursor-not-allowed'
+                  }`}
+                >
+                  {isLast ? 'បញ្ជូនចម្លើយ' : 'សំណួរបន្ទាប់'}
+                  {!isLast && <ChevronRight size={20} className="ml-1" />}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      };
+
+      const renderResultsView = () => {
+        const score = calculateScore();
+        const total = activeQuizQuestions.length;
+        const percentage = Math.round((score / total) * 100);
+
+        let message = "ធ្វើបានល្អណាស់!";
+        if (percentage < 50) message = "ខិតខំរៀនបន្តទៀត អ្នកអាចធ្វើបានល្អជាងនេះ!";
+        else if (percentage < 80) message = "ល្អណាស់! ត្រូវអនុវត្តបន្ថែមបន្តិចទៀត។";
+
+        return (
+          <div className="max-w-4xl mx-auto py-10 px-4 sm:px-6">
+            <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100 mb-8 text-center py-12">
+              <Award size={64} className={`mx-auto mb-4 ${percentage >= 50 ? 'text-yellow-400' : 'text-gray-400'}`} />
+              <h2 className="text-4xl font-extrabold text-gray-900 mb-2">{percentage}%</h2>
+              <p className="text-xl text-gray-600 mb-6">អ្នកទទួលបានពិន្ទុ {score} លើ {total}</p>
+              <p className="text-lg font-medium text-indigo-600">{message}</p>
+              
+              <div className="mt-8 flex justify-center space-x-4">
+                <button 
+                  onClick={() => {
+                    localStorage.removeItem('mediQuizSession');
+                    setSavedSession(null);
+                    setCurrentView('setup');
+                  }}
+                  className="flex items-center px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-xl font-semibold transition-colors"
+                >
+                  <Settings className="mr-2" size={20} /> រៀបចំឡើងវិញ
+                </button>
+                <button 
+                  onClick={startQuiz}
+                  className="flex items-center px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold shadow-md transition-transform hover:-translate-y-1"
+                >
+                  <RefreshCcw className="mr-2" size={20} /> ធ្វើតេស្តម្តងទៀត
+                </button>
+              </div>
+            </div>
+
+            <h3 className="text-2xl font-bold text-gray-900 mb-6">ការត្រួតពិនិត្យចម្លើយលម្អិត</h3>
+            <div className="space-y-6">
+              {activeQuizQuestions.map((q, idx) => {
+                const userAns = userAnswers[idx];
+                const isCorrect = userAns === q.answer;
+
+                return (
+                  <div key={idx} className={`bg-white p-6 rounded-xl shadow-sm border-l-8 ${isCorrect ? 'border-l-green-500' : 'border-l-red-500'}`}>
+                    <div className="flex justify-between items-start mb-4">
+                      <h4 className="text-lg font-medium text-gray-900 leading-tight pr-8 whitespace-pre-line">
+                        <span className="text-gray-400 mr-2">{idx + 1}.</span>
+                        {q.text}
+                      </h4>
+                      {isCorrect ? (
+                        <CheckCircle2 size={28} className="text-green-500 flex-shrink-0" />
+                      ) : (
+                        <XCircle size={28} className="text-red-500 flex-shrink-0" />
+                      )}
+                    </div>
+                    
+                    <div className="space-y-2 mt-4">
+                      {q.options.map((opt, optIdx) => {
+                        let styling = "p-3 rounded-lg text-sm border ";
+                        let icon = null;
+
+                        if (optIdx === q.answer) {
+                          styling += "bg-green-50 border-green-200 text-green-800 font-medium";
+                          icon = <CheckCircle2 size={16} className="mr-2 text-green-600 flex-shrink-0" />;
+                        } else if (optIdx === userAns && !isCorrect) {
+                          styling += "bg-red-50 border-red-200 text-red-800";
+                          icon = <XCircle size={16} className="mr-2 text-red-600 flex-shrink-0" />;
+                        } else {
+                          styling += "bg-gray-50 border-gray-100 text-gray-500";
+                          icon = <div className="w-4 h-4 mr-2 flex-shrink-0" />;
+                        }
+
+                        return (
+                          <div key={optIdx} className={`${styling} flex items-center`}>
+                            {icon}
+                            <span className="whitespace-pre-line">{opt}</span>
+                            {optIdx === userAns && !isCorrect && <span className="ml-auto text-xs font-bold text-red-500 uppercase flex-shrink-0">ចម្លើយរបស់អ្នក</span>}
+                            {optIdx === q.answer && <span className="ml-auto text-xs font-bold text-green-600 uppercase flex-shrink-0">ចម្លើយត្រឹមត្រូវ</span>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      };
+
+      return (
+        <div className="min-h-screen flex flex-col bg-gray-50 font-sans selection:bg-indigo-100">
+          {renderHeader()}
+          <div className="flex flex-1 overflow-hidden relative">
+            {renderSidebar()}
+            <main className="flex-1 overflow-y-auto">
+              <div className="pb-12">
+                {currentView === 'setup' && renderSetupView()}
+                {currentView === 'list' && renderListView()}
+                {currentView === 'quiz' && renderQuizView()}
+                {currentView === 'results' && renderResultsView()}
+              </div>
+            </main>
+          </div>
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
